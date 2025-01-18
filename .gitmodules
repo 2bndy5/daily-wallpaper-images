@@ -1,0 +1,3 @@
+[submodule "native/wallpaper"]
+	path = native/wallpaper
+	url = https://github.com/2bndy5/wallpaper.rs
