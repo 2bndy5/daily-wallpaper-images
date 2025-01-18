@@ -4,22 +4,11 @@ package basic;
 // [DART-SIGNAL]
 message BingRefresh {}
 
-// [RUST-ATTRIBUTE(#[derive(serde::Deserialize)])]
-message BingImage {
-    string url = 1;
-    string startdate = 2;
-    string title = 3;
-    string copyright = 4;
-}
-
-// [RUST-SIGNAL]
-message BingImageList { repeated BingImage images = 1; }
-
 // [DART-SIGNAL]
 message NasaRefresh {}
 
 // [RUST-ATTRIBUTE]
-message NasaImage {
+message DailyImage {
     string url = 1;
     string date = 2;
     string title = 3;
@@ -27,7 +16,10 @@ message NasaImage {
 }
 
 // [RUST-SIGNAL]
-message NasaImageList { repeated NasaImage images = 1; }
+message NasaImageList { repeated DailyImage images = 1; }
+
+// [RUST-SIGNAL]
+message BingImageList { repeated DailyImage images = 1; }
 
 enum WallpaperMode {
     Center = 0;

@@ -106,15 +106,15 @@ impl Handler<NasaRefreshMsg> for NasaActor {
                 .await
                 .with_context(|| "Failed to get body as text from Nasa images' response"),
         )?;
-        let items = check_err(
+        let images = check_err(
             quick_xml::de::from_str::<NasaFeed>(&text)
                 .with_context(|| "Failed to deserialize Nasa images' response payload."),
         )?
         .channel
         .item;
-        let mut images = NasaImageList { images: vec![] };
+        let mut image_list = NasaImageList { images: vec![] };
         let mut last_day = None;
-        for item in &items {
+        for item in &images {
             last_day = Some(parse_date(&item.pub_date[5..16])?);
             let date = last_day.unwrap().format(DATE_FILE_FMT);
             let file_name = self.app_cache_dir.join(format!(
@@ -145,15 +145,15 @@ impl Handler<NasaRefreshMsg> for NasaActor {
                         .with_context(|| "Failed to write Nasa image data to cache file"),
                 )?;
             }
-            let image = NasaImage {
+            let image = DailyImage {
                 url: file_name.to_string_lossy().to_string(),
                 date: date.to_string(),
                 title: item.title.clone(),
                 description: item.description.clone(),
             };
-            images.images.push(image);
+            image_list.images.push(image);
             // The send method is generated from a marked Protobuf message.
-            images.send_signal_to_dart();
+            image_list.send_signal_to_dart();
         }
 
         // dispose outdated cached images
