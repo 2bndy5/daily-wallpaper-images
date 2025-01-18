@@ -1,0 +1,33 @@
+[package]
+# Do not change the name of this crate.
+name = "hub"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+# `lib` is required for non-library targets,
+# such as tests and benchmarks.
+# `cdylib` is for Linux, Android, Windows, and web.
+# `staticlib` is for iOS and macOS.
+crate-type = ["lib", "cdylib", "staticlib"]
+
+[dependencies]
+rinf = "7.1.0"
+prost = "0.13.4"
+tokio = { version = "1.43.0", features = ["rt", "macros"] }
+messages = "0.3.1"
+anyhow = "1.0.95"
+reqwest = {version = "0.12.12", default-features = false, features = ["rustls-tls"]}
+serde_json = "1.0.135"
+serde = {version = "1.0.217", features = ["derive"]}
+dirs = "6.0.0"
+quick-xml = {version = "0.37.2", features = ["serialize"]}
+chrono = "0.4.39"
+# winapi = { version = "0.3.9", features = ["std", "winuser", "shobjidl_core"] }
+
+[target.'cfg(not(target_os = "android"))'.dependencies]
+more-wallpapers = { version = "0.4.0", features = ["fallback"] }
+
+# Uncomment below to target the web.
+# tokio_with_wasm = { version = "0.7.2", features = ["rt", "macros"] }
+# wasm-bindgen = "0.2.95"

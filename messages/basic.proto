@@ -1,0 +1,48 @@
+syntax = "proto3";
+package basic;
+
+// [DART-SIGNAL]
+message BingRefresh {}
+
+// [RUST-ATTRIBUTE(#[derive(serde::Deserialize)])]
+message BingImage {
+    string url = 1;
+    string startdate = 2;
+    string title = 3;
+    string copyright = 4;
+}
+
+// [RUST-SIGNAL]
+message BingImageList { repeated BingImage images = 1; }
+
+// [DART-SIGNAL]
+message NasaRefresh {}
+
+// [RUST-ATTRIBUTE]
+message NasaImage {
+    string url = 1;
+    string date = 2;
+    string title = 3;
+    string description = 4;
+}
+
+// [RUST-SIGNAL]
+message NasaImageList { repeated NasaImage images = 1; }
+
+enum WallpaperMode {
+    Center = 0;
+    Crop = 1;
+    Fit = 2;
+    Stretch = 3;
+    Tile = 4;
+}
+
+message WallpaperSelection {
+    string path =1;
+    WallpaperMode mode = 2;
+}
+
+// [DART-SIGNAL]
+message SetWallpaper {
+    WallpaperSelection selected = 1;
+}
