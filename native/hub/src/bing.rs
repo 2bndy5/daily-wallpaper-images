@@ -16,14 +16,25 @@ use rinf::debug_print;
 use serde::Deserialize;
 use tokio::spawn;
 
+#[derive(Debug, Deserialize)]
+pub struct BingImage {
+    pub url: String,
+    #[serde(rename(deserialize = "startdate"))]
+    pub start_date: String,
+    pub title: String,
+    pub copyright: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct BingImages {
+    images: Vec<BingImage>,
+}
+
 // The type for instigating the actor.
 pub struct BingRefreshMsg;
 
 // The actor that holds the counter state and handles messages.
 pub struct BingActor {
-    // The counter number.
-    #[allow(dead_code)]
-    images: Vec<String>,
     app_cache_dir: PathBuf,
 }
 
@@ -34,10 +45,7 @@ impl Actor for BingActor {}
 impl BingActor {
     pub fn new(bing_addr: Address<Self>, app_cache_dir: PathBuf) -> Self {
         spawn(Self::listen_to_refresh_trigger(bing_addr));
-        BingActor {
-            images: vec![],
-            app_cache_dir,
-        }
+        BingActor { app_cache_dir }
     }
 
     async fn listen_to_refresh_trigger(mut bing_addr: Address<Self>) {
@@ -52,14 +60,10 @@ impl BingActor {
         }
     }
 }
+
 fn parse_date(date: &str) -> Result<NaiveDate> {
     NaiveDate::parse_from_str(date, "%Y%m%d")
         .with_context(|| "Failed to parse Bing picture's date.")
-}
-
-#[derive(Debug, Deserialize)]
-pub struct BingImages {
-    images: Vec<BingImage>,
 }
 
 #[async_trait]
@@ -80,24 +84,21 @@ impl Handler<BingRefreshMsg> for BingActor {
                 .await
                 .with_context(|| "Failed to get body as text from Bing images' response"),
         )?;
-        let mut images = check_err(
+        let images = check_err(
             serde_json::from_str::<BingImages>(&text)
                 .with_context(|| "Failed to deserialize Bing images' response payload."),
         )?
         .images;
+        let mut image_list = BingImageList { images: vec![] };
         let mut last_day = None;
-        for img in &mut images {
-            last_day = Some(parse_date(&img.startdate)?);
+        for img in &images {
+            last_day = Some(parse_date(&img.start_date)?);
             let date = last_day.unwrap().format(DATE_FILE_FMT);
 
             let file_name = self.app_cache_dir.join(format!("{date}.jpg"));
-            img.startdate = date.to_string();
-            if file_name.exists() {
-                img.url = file_name.to_string_lossy().to_string();
-            } else {
-                img.url = format!("https://bing.com{}", img.url);
+            if !file_name.exists() {
                 let response = check_err(
-                    reqwest::get(&img.url)
+                    reqwest::get(format!("https://bing.com{}", img.url).as_str())
                         .await
                         .with_context(|| "Failed to download image from Bing"),
                 )?;
@@ -115,8 +116,16 @@ impl Handler<BingRefreshMsg> for BingActor {
                     file.write_all(&img_bin)
                         .with_context(|| "Failed to write Bing image data to cache file"),
                 )?;
-                img.url = file_name.to_string_lossy().to_string();
             }
+            let image = DailyImage {
+                url: file_name.to_string_lossy().to_string(),
+                date: date.to_string(),
+                title: img.title.clone(),
+                description: img.copyright.clone(),
+            };
+            image_list.images.push(image);
+            // The send method is generated from a marked Protobuf message.
+            image_list.send_signal_to_dart();
         }
 
         // dispose outdated cached images
@@ -144,8 +153,6 @@ impl Handler<BingRefreshMsg> for BingActor {
             }
         }
 
-        // The send method is generated from a marked Protobuf message.
-        BingImageList { images }.send_signal_to_dart();
         Ok(())
     }
 }
