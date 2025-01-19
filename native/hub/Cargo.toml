@@ -26,7 +26,7 @@ chrono = "0.4.39"
 # winapi = { version = "0.3.9", features = ["std", "winuser", "shobjidl_core"] }
 
 [target.'cfg(not(target_os = "android"))'.dependencies]
-more-wallpapers = { version = "0.4.0", features = ["fallback"] }
+wallpaper = {path = "../wallpaper"}
 
 # Uncomment below to target the web.
 # tokio_with_wasm = { version = "0.7.2", features = ["rt", "macros"] }

@@ -52,14 +52,17 @@ impl Handler<SetWallpaper> for WallpaperActor {
             selection.mode()
         );
         let mode = match &selection.mode() {
-            WallpaperMode::Center => more_wallpapers::Mode::Center,
-            WallpaperMode::Crop => more_wallpapers::Mode::Crop,
-            WallpaperMode::Fit => more_wallpapers::Mode::Fit,
-            WallpaperMode::Stretch => more_wallpapers::Mode::Stretch,
-            WallpaperMode::Tile => more_wallpapers::Mode::Tile,
+            WallpaperMode::Center => wallpaper::Mode::Center,
+            WallpaperMode::Crop => wallpaper::Mode::Crop,
+            WallpaperMode::Fit => wallpaper::Mode::Fit,
+            WallpaperMode::Stretch => wallpaper::Mode::Stretch,
+            WallpaperMode::Tile => wallpaper::Mode::Tile,
         };
-        if let Err(e) = more_wallpapers::set_wallpapers_from_vec(vec![&selection.path], &selection.path, mode) {
+        if let Err(e) = wallpaper::set_from_path(&selection.path) {
             debug_print!("Failed to set the desktop wallpaper: {e:?}");
+        }
+        if let Err(e) = wallpaper::set_mode(mode) {
+            debug_print!("Failed to set wallpaper sizing `mode`: {e:?}");
         }
 
         Ok(())
