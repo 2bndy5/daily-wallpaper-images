@@ -2,18 +2,24 @@
 
 A new Flutter project.
 
-## Getting Started
+## Building from source
 
-This project is a starting point for a Flutter application.
+To build this app from git source, [`rinf`](https://github.com/cunarist/rinf) must first be installed.
 
-A few resources to get you started if this is your first Flutter project:
+```text
+cargo install rinf
+```
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+Rinf can also be installed with [cargo-binstall](https://github.com/cargo-bins/cargo-binstall).
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+Now, use these commands to run the app:
+
+```text
+git clone --recurse-submodules https://gitlab.com/2bndy5/daily_images.git
+cd daily_images
+rinf message
+flutter run
+```
 
 ## Using Rust Inside Flutter
 
@@ -56,4 +62,3 @@ flutter run
 
 For detailed instructions on writing Rust and Flutter together,
 please refer to Rinf's [documentation](https://rinf.cunarist.com).
-
