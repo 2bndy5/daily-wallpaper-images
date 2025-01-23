@@ -1,4 +1,4 @@
-package u2bndy5.daily_images
+package u2bndy5.daily_wallpaper_images
 
 import io.flutter.embedding.android.FlutterActivity
 
