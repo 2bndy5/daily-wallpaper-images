@@ -6,6 +6,17 @@ import 'package:daily_images/messages/all.dart';
 import 'package:shimmer_animation/shimmer_animation.dart';
 
 mixin ImageListPage {
+  Icon _getModeIcon(WallpaperMode mode) {
+    return Icon(switch (mode) {
+      WallpaperMode.Fit => Icons.fit_screen,
+      WallpaperMode.Stretch => Icons.zoom_out_map,
+      WallpaperMode.Center => Icons.zoom_in_map,
+      WallpaperMode.Tile => Icons.grid_view,
+      WallpaperMode.Crop => Icons.crop,
+      _ => throw UnimplementedError("Unsupported wallpaper mode specified"),
+    });
+  }
+
   void _pictureModal(BuildContext context, DailyImage img) {
     showDialog<void>(
       context: context,
@@ -26,24 +37,27 @@ mixin ImageListPage {
             ],
           ),
           actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
             DropdownMenu<WallpaperMode>(
               initialSelection: WallpaperMode.Fit,
+              leadingIcon: _getModeIcon(selectedMode),
+              label: const Text("Wallpaper Mode"),
               dropdownMenuEntries:
                   WallpaperMode.values.map<DropdownMenuEntry<WallpaperMode>>(
                 (entry) {
                   return DropdownMenuEntry(
                     label: entry.toString(),
                     value: entry,
+                    leadingIcon: _getModeIcon(entry),
                   );
                 },
               ).toList(),
               onSelected: (value) => {
                 if (value != null) {selectedMode = value}
               },
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
             ),
             TextButton(
               onPressed: () async {
