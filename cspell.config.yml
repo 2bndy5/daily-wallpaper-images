@@ -2,12 +2,16 @@ version: "0.2"
 words:
   - binstall
   - chrono
+  - clippy
   - desaturate
   - oneof
+  - pubspec
   - reqwest
   - rinf
+  - rustup
   - serde
   - startdate
+  - temurin
   - thiserror
 ignorePaths:
   - native/wallpaper

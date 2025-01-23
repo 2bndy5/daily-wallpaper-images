@@ -1,0 +1,81 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            flutter-cmd: linux
+            artifact: build/linux/x64/release
+          - os: ubuntu-latest
+            flutter-cmd: apk
+            artifact: build/app/outputs/flutter-apk/app-release.apk
+          - os: windows-latest
+            flutter-cmd: windows
+            artifact: build/windows/x64/runner/Release
+          - os: macos-latest
+            flutter-cmd: macos
+            artifact: build/macos/x64/runner/Release
+    runs-on: ${{ matrix.os }}
+    steps:
+      # setup env
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Install latest Rust default toolchain
+        run: rustup update --no-self-update
+      - name: Install cargo-binstall latest
+        uses: cargo-bins/cargo-binstall@main      
+      - name: Install Rinf
+        run: cargo binstall -y rinf
+      - name: Setup Java for Android
+        uses: actions/setup-java@v4
+        # only required for android builds
+        if: matrix.flutter-cmd == 'apk'
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+          cache: 'gradle'
+          cache-dependency-path: android/**/gradle-wrapper.properties
+      - name: Install rust toolchains for Android
+        # only required for android builds
+        if: matrix.flutter-cmd == 'apk'
+        run: rustup target add armv7-linux-androideabi aarch64-linux-android x86_64-linux-android
+      - name: Setup Flutter SDK
+        # this action allegedly runs `flutter --disable-analytics`
+        uses: flutter-actions/setup-flutter@v4
+        with:
+          channel: stable
+          version: latest
+          cache: true
+          cache-key: ${{ hashFiles('pubspec.lock', 'pubspec.yaml') }}
+
+      # lint and build
+      - name: Generate messages API
+        run: rinf message
+      - name: Get Flutter dependencies
+        run: flutter pub get
+      - name: Lint Dart sources
+        run: flutter --no-pub analyze
+      - name: Lint Rust sources
+        run: cargo clippy
+      - name: Format Rust sources
+        run: cargo fmt --check
+      - name: Build App
+        run: flutter build ${{ matrix.flutter-cmd }}
+      - shell: bash
+        run: ls -R build
+      - name: Save artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          path: ${{ matrix.artifact }}
+          name: ${{ matrix.flutter-cmd == 'apk' && 'android' || runner.os }}

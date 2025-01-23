@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:daily_images/messages/all.dart';
-import 'package:daily_images/image_list.dart';
+import 'package:daily_wallpaper_images/messages/all.dart';
+import 'package:daily_wallpaper_images/image_list.dart';
 
 class NasaPage extends StatelessWidget with ImageListPage {
   NasaPage({super.key});
