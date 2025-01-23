@@ -14,7 +14,7 @@ use std::{
 use crate::common::{check_err, DATE_FILE_FMT};
 use crate::messages::*;
 use anyhow::{anyhow, Context, Result};
-use chrono::NaiveDate;
+use chrono::{Local, NaiveDate};
 use messages::prelude::{async_trait, Actor, Address, Context as MsgContext, Handler};
 use reqwest::Url;
 use rinf::debug_print;
@@ -94,27 +94,51 @@ impl Handler<NasaRefreshMsg> for NasaActor {
     // Handles messages received by the actor.
     async fn handle(&mut self, _msg: NasaRefreshMsg, _context: &MsgContext<Self>) -> Self::Result {
         debug_print!("Getting Nasa images");
-        // get list of images
-        let response = check_err(
-            reqwest::get("https://www.nasa.gov/rss/dyn/lg_image_of_the_day.rss")
-                .await
-                .with_context(|| "Failed to get list of Nasa images"),
-        )?;
-        let text = check_err(
-            response
-                .text()
-                .await
-                .with_context(|| "Failed to get body as text from Nasa images' response"),
-        )?;
+        let now = Local::now().date_naive();
+        let today = format!("{}.xml", now.format(DATE_FILE_FMT));
+        let cached_metadata = self.app_cache_dir.join(Path::new(&today));
+        let text = if cached_metadata.exists() {
+            fs::read_to_string(&cached_metadata)
+                .with_context(|| "Failed to read cached Nasa metadata")?
+        } else {
+            let response = check_err(
+                reqwest::get("https://www.nasa.gov/rss/dyn/lg_image_of_the_day.rss")
+                    .await
+                    .with_context(|| "Failed to get list of Nasa images"),
+            )?;
+            let text = check_err(
+                response
+                    .text()
+                    .await
+                    .with_context(|| "Failed to get body as text from Nasa images' response"),
+            )?;
+            check_err(
+                fs::write(&cached_metadata, &text)
+                    .with_context(|| "Failed to write Nasa metadata to cache"),
+            )?;
+            text
+        };
         let images = check_err(
             quick_xml::de::from_str::<NasaFeed>(&text)
                 .with_context(|| "Failed to deserialize Nasa images' response payload."),
         )?
         .channel
         .item;
-        let mut image_list = NasaImageList { images: vec![] };
+        let mut image_list = NasaImageList {
+            images: images
+                .iter()
+                .map(|i| DailyImage {
+                    url: String::new(),
+                    date: check_err(parse_date(&i.pub_date[5..16]))
+                        .map(|d| d.format(DATE_FILE_FMT).to_string())
+                        .unwrap_or(i.pub_date.clone()),
+                    description: i.description.clone(),
+                    title: i.title.clone(),
+                })
+                .collect(),
+        };
         let mut last_day = None;
-        for item in &images {
+        for (i, item) in images.into_iter().enumerate() {
             last_day = Some(parse_date(&item.pub_date[5..16])?);
             let date = last_day.unwrap().format(DATE_FILE_FMT);
             let file_name = self.app_cache_dir.join(format!(
@@ -145,13 +169,7 @@ impl Handler<NasaRefreshMsg> for NasaActor {
                         .with_context(|| "Failed to write Nasa image data to cache file"),
                 )?;
             }
-            let image = DailyImage {
-                url: file_name.to_string_lossy().to_string(),
-                date: date.to_string(),
-                title: item.title.clone(),
-                description: item.description.clone(),
-            };
-            image_list.images.push(image);
+            image_list.images[i].url = file_name.to_string_lossy().to_string();
             // The send method is generated from a marked Protobuf message.
             image_list.send_signal_to_dart();
         }
@@ -168,19 +186,34 @@ impl Handler<NasaRefreshMsg> for NasaActor {
                     continue;
                 }
                 let date = NaiveDate::parse_from_str(
-                    &entry
-                        .path()
-                        .file_stem()
-                        .ok_or(anyhow!("Failed to get filename for cached Nasa image"))?
-                        .to_string_lossy(),
+                    &check_err(
+                        entry
+                            .path()
+                            .file_stem()
+                            .ok_or(anyhow!("Failed to get filename for cached Nasa image")),
+                    )?
+                    .to_string_lossy(),
                     DATE_FILE_FMT,
                 )?;
-                if date < last_day {
-                    fs::remove_file(entry.path())?;
+                if date < last_day
+                    || (date != now
+                        && check_err(
+                            entry
+                                .path()
+                                .extension()
+                                .ok_or(anyhow!("Failed to get cached file's extension")),
+                        )?
+                        .to_string_lossy()
+                        .ends_with("xml"))
+                {
+                    debug_print!("Deleting outdated cache file {:?}", entry.path());
+                    check_err(
+                        fs::remove_file(entry.path())
+                            .with_context(|| "Failed to delete outdated Nasa cache file"),
+                    )?;
                 }
             }
         }
-
         Ok(())
     }
 }

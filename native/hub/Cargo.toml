@@ -22,8 +22,7 @@ serde_json = "1.0.135"
 serde = {version = "1.0.217", features = ["derive"]}
 dirs = "6.0.0"
 quick-xml = {version = "0.37.2", features = ["serialize"]}
-chrono = "0.4.39"
-# winapi = { version = "0.3.9", features = ["std", "winuser", "shobjidl_core"] }
+chrono = {version = "0.4.39", features = ["now"]}
 
 [target.'cfg(not(target_os = "android"))'.dependencies]
 wallpaper = {path = "../wallpaper"}

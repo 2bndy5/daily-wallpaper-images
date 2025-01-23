@@ -5,12 +5,14 @@
 //! To build a solid app, do not communicate by sharing memory;
 //! instead, share memory by communicating.
 
+use std::fmt::Debug;
+use std::path::Path;
 use std::{fs, io::Write, path::PathBuf};
 
 use crate::common::{check_err, DATE_FILE_FMT};
 use crate::messages::*;
 use anyhow::{anyhow, Context, Result};
-use chrono::NaiveDate;
+use chrono::{Local, NaiveDate};
 use messages::prelude::{async_trait, Actor, Address, Context as MsgContext, Handler};
 use rinf::debug_print;
 use serde::Deserialize;
@@ -72,26 +74,52 @@ impl Handler<BingRefreshMsg> for BingActor {
     // Handles messages received by the actor.
     async fn handle(&mut self, _msg: BingRefreshMsg, _context: &MsgContext<Self>) -> Self::Result {
         debug_print!("Getting Bing images");
-        // get list of images
-        let response = check_err(
-            reqwest::get("https://www.bing.com/HPImageArchive.aspx?format=js&idx=0&n=14")
-                .await
-                .with_context(|| "Failed to get list of Bing images"),
-        )?;
-        let text = check_err(
-            response
-                .text()
-                .await
-                .with_context(|| "Failed to get body as text from Bing images' response"),
-        )?;
+        let now = Local::now().date_naive();
+        let today = format!("{}.json", now.format(DATE_FILE_FMT));
+        let cached_metadata = self.app_cache_dir.join(Path::new(&today));
+        let text = if cached_metadata.exists() {
+            check_err(
+                fs::read_to_string(&cached_metadata)
+                    .with_context(|| "Failed to read cached Bing metadata"),
+            )?
+        } else {
+            let response = check_err(
+                reqwest::get("https://www.bing.com/HPImageArchive.aspx?format=js&idx=0&n=14")
+                    .await
+                    .with_context(|| "Failed to get list of Bing images"),
+            )?;
+            let text = check_err(
+                response
+                    .text()
+                    .await
+                    .with_context(|| "Failed to get body as text from Bing images' response"),
+            )?;
+            check_err(
+                fs::write(&cached_metadata, &text)
+                    .with_context(|| "Failed to write Bing metadata to cache"),
+            )?;
+            text
+        };
         let images = check_err(
             serde_json::from_str::<BingImages>(&text)
                 .with_context(|| "Failed to deserialize Bing images' response payload."),
         )?
         .images;
-        let mut image_list = BingImageList { images: vec![] };
+        let mut image_list = BingImageList {
+            images: images
+                .iter()
+                .map(|i| DailyImage {
+                    url: String::new(),
+                    date: check_err(parse_date(&i.start_date))
+                        .map(|d| d.format(DATE_FILE_FMT).to_string())
+                        .unwrap_or(i.start_date.clone()),
+                    description: i.copyright.clone(),
+                    title: i.title.clone(),
+                })
+                .collect(),
+        };
         let mut last_day = None;
-        for img in &images {
+        for (i, img) in images.into_iter().enumerate() {
             last_day = Some(parse_date(&img.start_date)?);
             let date = last_day.unwrap().format(DATE_FILE_FMT);
 
@@ -117,13 +145,7 @@ impl Handler<BingRefreshMsg> for BingActor {
                         .with_context(|| "Failed to write Bing image data to cache file"),
                 )?;
             }
-            let image = DailyImage {
-                url: file_name.to_string_lossy().to_string(),
-                date: date.to_string(),
-                title: img.title.clone(),
-                description: img.copyright.clone(),
-            };
-            image_list.images.push(image);
+            image_list.images[i].url = file_name.to_string_lossy().to_string();
             // The send method is generated from a marked Protobuf message.
             image_list.send_signal_to_dart();
         }
@@ -140,19 +162,34 @@ impl Handler<BingRefreshMsg> for BingActor {
                     continue;
                 }
                 let date = NaiveDate::parse_from_str(
-                    &entry
-                        .path()
-                        .file_stem()
-                        .ok_or(anyhow!("Failed to get filename of cached Bing image"))?
-                        .to_string_lossy(),
+                    &check_err(
+                        entry
+                            .path()
+                            .file_stem()
+                            .ok_or(anyhow!("Failed to get filename of cached Bing image/file")),
+                    )?
+                    .to_string_lossy(),
                     DATE_FILE_FMT,
                 )?;
-                if date < last_day {
-                    fs::remove_file(entry.path())?;
+                if date < last_day
+                    || (date != now
+                        && check_err(
+                            entry
+                                .path()
+                                .extension()
+                                .ok_or(anyhow!("Failed to get cached file's extension")),
+                        )?
+                        .to_string_lossy()
+                        .ends_with("json"))
+                {
+                    debug_print!("Deleting outdated cache file {:?}", entry.path());
+                    check_err(
+                        fs::remove_file(entry.path())
+                            .with_context(|| "Failed to delete outdated Nasa cache file"),
+                    )?;
                 }
             }
         }
-
         Ok(())
     }
 }

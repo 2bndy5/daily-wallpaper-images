@@ -2,14 +2,11 @@ version: "0.2"
 words:
   - chrono
   - desaturate
-  - enquote
   - oneof
   - reqwest
   - rinf
   - serde
-  - shobjidl
   - startdate
   - thiserror
-  - winapi
-  - winreg
-  - winuser
+ignorePaths:
+  - native/wallpaper

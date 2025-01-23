@@ -3,25 +3,44 @@ import 'dart:io';
 // import 'package:async_wallpaper/async_wallpaper.dart';
 import 'package:flutter/material.dart';
 import 'package:daily_images/messages/all.dart';
+import 'package:shimmer_animation/shimmer_animation.dart';
 
 mixin ImageListPage {
   void _pictureModal(BuildContext context, DailyImage img) {
     showDialog<void>(
       context: context,
       builder: (context) {
+        var selectedMode = WallpaperMode.Fit;
         return AlertDialog(
           title: Text(img.date),
-          content: Center(
-            child: Container(
-              constraints: BoxConstraints(minHeight: 200.0),
-              child: Image.file(
-                File(img.url),
-                fit: BoxFit.contain,
+          content: Column(
+            children: <Widget>[
+              Expanded(
+                child: Image.file(
+                  File(img.url),
+                  fit: BoxFit.contain,
+                  semanticLabel: img.description,
+                ),
               ),
-            ),
+              Text(img.description),
+            ],
           ),
           actions: <Widget>[
-            Text(img.description),
+            DropdownMenu<WallpaperMode>(
+              initialSelection: WallpaperMode.Fit,
+              dropdownMenuEntries:
+                  WallpaperMode.values.map<DropdownMenuEntry<WallpaperMode>>(
+                (entry) {
+                  return DropdownMenuEntry(
+                    label: entry.toString(),
+                    value: entry,
+                  );
+                },
+              ).toList(),
+              onSelected: (value) => {
+                if (value != null) {selectedMode = value}
+              },
+            ),
             TextButton(
               onPressed: () => Navigator.pop(context),
               child: const Text('Cancel'),
@@ -37,7 +56,7 @@ mixin ImageListPage {
                   SetWallpaper(
                     selected: WallpaperSelection(
                       path: img.url,
-                      mode: WallpaperMode.Fit,
+                      mode: selectedMode,
                     ),
                   ).sendSignalToRust();
                 }
@@ -65,6 +84,8 @@ mixin ImageListPage {
   }
 
   Widget buildListView(BuildContext context, List<DailyImage> images) {
+    var colorScheme = Theme.of(context).colorScheme;
+
     return GridView.extent(
       padding: EdgeInsets.all(10.0),
       maxCrossAxisExtent: 450.0,
@@ -75,17 +96,31 @@ mixin ImageListPage {
           InkResponse(
             child: GridTile(
               footer: Container(
-                color: Theme.of(context).colorScheme.surface.withAlpha(215),
+                color: colorScheme.surface.withAlpha(215),
                 child: Text(
                   img.description,
                   maxLines: 3,
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              child: Image.file(File(img.url)),
+              child: img.url.isEmpty
+                  ? Shimmer(
+                      interval: const Duration(seconds: 1),
+                      duration: const Duration(seconds: 2),
+                      color: colorScheme.onSecondaryContainer,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: colorScheme.secondaryContainer,
+                          shape: BoxShape.rectangle,
+                        ),
+                      ),
+                    )
+                  : Image.file(File(img.url)),
             ),
             onTap: () {
-              return _pictureModal(context, img);
+              if (img.url.isNotEmpty) {
+                return _pictureModal(context, img);
+              }
             },
           )
       ],
