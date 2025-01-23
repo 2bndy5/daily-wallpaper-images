@@ -15,16 +15,21 @@ jobs:
           - os: ubuntu-latest
             flutter-cmd: linux
             artifact: build/linux/x64/release
+            platform: Linux
           - os: ubuntu-latest
             flutter-cmd: apk
             artifact: build/app/outputs/flutter-apk/app-release.apk
+            platform: Android
           - os: windows-latest
             flutter-cmd: windows
             artifact: build/windows/x64/runner/Release
+            platform: Windows
           - os: macos-latest
             flutter-cmd: macos
             artifact: build/macos/x64/runner/Release
+            platform: MacOS
     runs-on: ${{ matrix.os }}
+    name: ${{ matrix.platform }} build
     steps:
       # setup env
       - name: Checkout Repository
@@ -65,7 +70,7 @@ jobs:
       - name: Get Flutter dependencies
         run: flutter pub get
       - name: Lint Dart sources
-        run: flutter --no-pub analyze
+        run: flutter analyze
       - name: Lint Rust sources
         run: cargo clippy
       - name: Format Rust sources
@@ -78,4 +83,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           path: ${{ matrix.artifact }}
-          name: ${{ matrix.flutter-cmd == 'apk' && 'android' || runner.os }}
+          name: ${{ matrix.platform }}_artifacts
