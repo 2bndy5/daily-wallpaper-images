@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:daily_images/bing.dart';
 import 'package:daily_images/nasa.dart';
 import 'package:flutter/material.dart';
@@ -16,7 +18,8 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: 'Daily Wallpaper Images',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
           seedColor: Colors.blueGrey,
@@ -29,7 +32,7 @@ class MyApp extends StatelessWidget {
           brightness: Brightness.dark,
         ),
       ),
-      home: const MyHomePage(title: 'Daily Images'),
+      home: const MyHomePage(title: 'Daily Wallpaper Images'),
     );
   }
 }
@@ -56,8 +59,8 @@ class _MyHomePageState extends State<MyHomePage> {
     final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: colorScheme.primary,
-        foregroundColor: colorScheme.onPrimary,
+        backgroundColor: colorScheme.primaryContainer,
+        foregroundColor: colorScheme.onPrimaryContainer,
         title: Text(widget.title),
         leading: Builder(
           builder: (context) {
@@ -76,11 +79,23 @@ class _MyHomePageState extends State<MyHomePage> {
           children: [
             DrawerHeader(
               decoration: BoxDecoration(
-                color: colorScheme.primary,
+                color: colorScheme.primaryContainer,
               ),
-              child: Text(
-                'Daily Images Sources',
-                style: TextStyle(color: colorScheme.onPrimary),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                spacing: 10.0,
+                children: [
+                  Expanded(
+                    child: Image.file(
+                      File("assets/app_icon_no_bg.png"),
+                      color: colorScheme.onPrimaryContainer,
+                    ),
+                  ),
+                  Text(
+                    'Daily Image Sources',
+                    style: TextStyle(color: colorScheme.onPrimaryContainer),
+                  ),
+                ],
               ),
             ),
             ListTile(

@@ -1,6 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application
-        android:label="daily_images"
+        android:label="Daily Wallpaper Images"
         android:name="${applicationName}"
         android:icon="@mipmap/launcher_icon">
         <activity
