@@ -26,7 +26,7 @@ jobs:
             platform: Windows
           - os: macos-latest
             flutter-cmd: macos
-            artifact: build/macos/Build/Products/Release
+            artifact: build/macos/Build/Products/Release/Daily Wallpaper Images.app
             platform: MacOS
     runs-on: ${{ matrix.os }}
     name: ${{ matrix.platform }} build
@@ -94,8 +94,6 @@ jobs:
       #   run: cargo fmt --check
       - name: Build App
         run: flutter build ${{ matrix.flutter-cmd }}
-      - shell: bash
-        run: ls -R build
       - name: Save artifacts
         uses: actions/upload-artifact@v4
         with:
