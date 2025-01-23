@@ -39,7 +39,7 @@ jobs:
       - name: Install latest Rust default toolchain
         run: rustup update --no-self-update
       - name: Install cargo-binstall latest
-        uses: cargo-bins/cargo-binstall@main      
+        uses: cargo-bins/cargo-binstall@main
       - name: Install Rinf
         run: cargo binstall -y rinf
       - name: Setup Java for Android
@@ -47,9 +47,9 @@ jobs:
         # only required for android builds
         if: matrix.flutter-cmd == 'apk'
         with:
-          distribution: 'temurin'
-          java-version: '21'
-          cache: 'gradle'
+          distribution: "temurin"
+          java-version: "21"
+          cache: "gradle"
           cache-dependency-path: android/**/gradle-wrapper.properties
       - name: Install rust toolchains for Android
         # only required for android builds
@@ -62,7 +62,23 @@ jobs:
           channel: stable
           version: latest
           cache: true
+          cache-sdk: true
           cache-key: ${{ hashFiles('pubspec.lock', 'pubspec.yaml') }}
+      - name: Cache .cargo locked resources
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo
+          key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}
+      - name: Fetch .cargo locked resources
+        run: cargo fetch
+      # https://github.com/ninja-build/ninja/wiki/Pre-built-Ninja-packages
+      # https://grpc.io/docs/protoc-installation/
+      - name: Install Linux prerequisites
+        if: runner.os == 'Linux'
+        run: sudo apt-get install -y ninja-build protobuf-compiler libgtk-3-dev
+      - name: Install MacOS prerequisites
+        if: runner.os == 'macOS'
+        run: brew install protobuf
 
       # lint and build
       - name: Generate messages API
