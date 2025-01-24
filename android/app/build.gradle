@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "u2bndy5.daily_wallpaper_images"
+    namespace = "u2bndy5.daily_wallpaper_images.daily_wallpaper_images"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -21,7 +21,7 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "u2bndy5.daily_wallpaper_images"
+        applicationId = "u2bndy5.daily_wallpaper_images.daily_wallpaper_images"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
