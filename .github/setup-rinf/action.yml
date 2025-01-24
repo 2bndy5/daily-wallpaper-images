@@ -35,7 +35,7 @@ inputs:
     description: Enable or disable caching of the project's pub.dev dependencies
     required: false
     default: 'false'
-  cache-sdk:
+  cache-flutter-sdk:
     description: Enable or disable caching of the installed Flutter SDK
     required: false
     default: 'false'
@@ -93,7 +93,7 @@ runs:
         channel: ${{ inputs.flutter-channel }}
         version: ${{ inputs.flutter-version }}
         cache: ${{ inputs.cache-pub == 'true' }}
-        cache-sdk: ${{ inputs.cache-flutter == 'true' }}
+        cache-sdk: ${{ inputs.cache-flutter-sdk == 'true' }}
         cache-key: ${{ inputs.cache-pub-key }}
     - name: Cache .cargo locked resources
       if: inputs.cache-cargo == 'true'
