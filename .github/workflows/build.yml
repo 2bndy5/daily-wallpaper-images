@@ -26,7 +26,7 @@ jobs:
             platform: Windows
           - os: macos-latest
             flutter-cmd: macos
-            artifact: build/macos/Build/Products/Release/Daily Wallpaper Images.app
+            artifact: build/macos/Build/Products/Release/daily_wallpaper_images.app
             platform: MacOS
     runs-on: ${{ matrix.os }}
     name: ${{ matrix.platform }} build
