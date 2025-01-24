@@ -44,7 +44,7 @@ jobs:
           cache-cargo-key: ${{ hashFiles('Cargo.lock') }}-${{ matrix.platform }}-cargo
           cache-pub: true
           cache-pub-key: ${{ hashFiles('pubspec.lock') }}-${{ matrix.platform }}-dart
-          cache-flutter: true
+          cache-flutter-sdk: true
 
       # lint and build
       - name: Generate messages API

@@ -36,7 +36,7 @@ By default, caching is disabled.
     cache-cargo-key: ${{ hashFiles('Cargo.lock') }}-android-cargo
     cache-pub: true
     cache-pub-key: ${{ hashFiles('pubspec.lock') }}-android-dart
-    cache-flutter: true # no key is needed
+    cache-flutter-sdk: true # no cache key is needed
     # cache key for Flutter SDK is handled by `flutter-actions/setup-flutter` internally
 ```
 
