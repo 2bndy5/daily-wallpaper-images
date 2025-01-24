@@ -1,0 +1,128 @@
+name: 'setup Rinf'
+description: setup Rinf project environment
+branding:
+  icon: zap
+  color: green
+inputs:
+  platform:
+    description: The target platform for which to build
+    required: true
+  java-dist:
+    description: The JAVA distribution to install (for android builds)
+    required: false
+    default: zulu
+  java-version:
+    description: The JAVA version to install (for android builds)
+    required: false
+    default: '21'
+  flutter-channel:
+    description: The Flutter SDK channel from which to install
+    required: false
+    default: stable
+  flutter-version:
+    description: The Flutter SDK version to install
+    required: false
+    default: latest
+  cache-cargo:
+    description: Enable or disable caching of the project's cargo dependencies
+    required: false
+    default: 'false'
+  cache-gradle:
+    description: Enable or disable the caching of the project's gradle dependencies
+    required: false
+    default: 'false'
+  cache-pub:
+    description: Enable or disable caching of the project's pub.dev dependencies
+    required: false
+    default: 'false'
+  cache-sdk:
+    description: Enable or disable caching of the installed Flutter SDK
+    required: false
+    default: 'false'
+  cache-cargo-key:
+    description: |-
+      The key to use when caching of the project's cargo dependencies.
+
+      Required if `cache-cargo` is enabled.
+    required: false
+  cache-pub-key:
+    description: |-
+      The key to use when caching of the project's pub.dev dependencies.
+
+      Required if `cache-pub` is enabled.
+    required: false
+outputs:
+  dart-version:
+    description: The install version of the Dart SDK
+    value: ${{ steps.version-output.outputs.dart-version }}
+  flutter-version:
+    description: The install version of the Flutter SDK
+    value: ${{ steps.version-output.outputs.flutter-version }}
+  rust-version:
+    description: The install version of the Rust toolchain
+    value: ${{ steps.version-output.outputs.rust-version }}
+runs:
+  using: "composite"
+  steps:
+    - name: Install latest Rust stable toolchain
+      shell: bash
+      run: rustup update --no-self-update
+    - name: Install cargo-binstall latest
+      uses: cargo-bins/cargo-binstall@main
+    - name: Install Rinf
+      shell: bash
+      run: cargo binstall -y rinf
+    - name: Setup Java for Android
+      uses: actions/setup-java@v4
+      # only required for android builds
+      if: inputs.platform == 'android'
+      with:
+        distribution: ${{ inputs.java-dist }}
+        java-version: ${{ inputs.java-version }}
+        cache: ${{ inputs.cache-gradle == 'true' && 'gradle' || null }}
+        cache-dependency-path: android/**/gradle-wrapper.properties
+    - name: Install rust toolchains for Android
+      # only required for android builds
+      if: inputs.platform == 'android'
+      shell: bash
+      run: rustup target add aarch64-linux-android
+    - name: Setup Flutter SDK
+      # this action allegedly runs `flutter --disable-analytics`
+      uses: flutter-actions/setup-flutter@v4
+      with:
+        channel: ${{ inputs.flutter-channel }}
+        version: ${{ inputs.flutter-version }}
+        cache: ${{ inputs.cache-pub == 'true' }}
+        cache-sdk: ${{ inputs.cache-flutter == 'true' }}
+        cache-key: ${{ inputs.cache-pub-key }}
+    - name: Cache .cargo locked resources
+      if: inputs.cache-cargo == 'true'
+      uses: actions/cache@v4
+      with:
+        path: ~/.cargo
+        key: ${{ inputs.cache-cargo-key }}
+    - name: Fetch .cargo locked resources
+      shell: bash
+      run: cargo fetch
+    # https://github.com/ninja-build/ninja/wiki/Pre-built-Ninja-packages
+    # https://grpc.io/docs/protoc-installation/
+    - name: Install Linux prerequisites
+      if: inputs.platform == 'linux'
+      shell: bash
+      run: sudo apt-get install -y ninja-build libgtk-3-dev protobuf-compiler
+    - name: Install MacOS prerequisites
+      if: inputs.platform == 'macos'
+      shell: bash
+      run: brew install protobuf
+    - name: Get version numbers for outputs
+      id: version-output
+      shell: bash
+      run: |-
+        OUTPUT=`flutter --version`
+        flutter_version=$(echo "$OUTPUT" | sed -E -n 's/Flutter ([0-9.]+).*/\1/p')
+        echo "flutter-version=$flutter_version" >> "$GITHUB_OUTPUT"
+        dart_version=$(echo "$OUTPUT" | sed -E -n 's/.*Dart ([0-9.]+).*/\1/p')
+        echo "dart-version=$dart_version" >> "$GITHUB_OUTPUT"
+        OUTPUT=`rustc --version`
+        rust_version=$(echo "$OUTPUT" | sed -E -n 's/rustc ([0-9.]+).*/\1/p')
+        echo "rust-version=$rust_version" >> "$GITHUB_OUTPUT"
