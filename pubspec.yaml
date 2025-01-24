@@ -63,6 +63,7 @@ flutter:
   # add assets to your application
   assets:
     - assets/app_icon.png
+    - assets/app_icon_no_bg.png
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
