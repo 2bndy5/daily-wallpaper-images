@@ -6,10 +6,12 @@ A composite action to setup Rinf (Rust inside Flutter) environment.
 
 This action can setup a build environment used to target the following platforms:
 
-- `android`
-- `linux`
-- `windows`
-- `macos`
+- `android` (can use any OS runner)
+- `web` (can use any OS runner)
+- `linux` (requires Debian-based Linux runner)
+- `windows` (requires Windows-based runner)
+- `macos` (requires MacOS-based runner)
+- `ios` (requires MacOS-based runner)
 
 ### Simple Example
 
