@@ -21,6 +21,17 @@ version: 1.0.0+1
 environment:
   sdk: ^3.6.0
 
+# Windows installer config
+msix_config:
+  display_name: Daily Wallpaper Images
+  ## publisher required for self-signing
+  # publisher: CN=2bndy5, O=Daily Wallpaper Images, C=US
+  publisher_display_name: 2bndy5
+  identity_name: 2bndy5.daily-wallpaper-images
+  msix_version: 1.0.0.0
+  logo_path: assets/app_icon.png
+  capabilities: internetClient
+
 # Dependencies specify other packages that your package needs in order to work.
 # To automatically upgrade your package dependencies to the latest versions
 # consider running `flutter pub upgrade --major-versions`. Alternatively,
