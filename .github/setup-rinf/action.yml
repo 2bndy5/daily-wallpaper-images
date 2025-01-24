@@ -81,7 +81,7 @@ runs:
         java-version: ${{ inputs.java-version }}
         cache: ${{ inputs.cache-gradle == 'true' && 'gradle' || null }}
         cache-dependency-path: android/**/gradle-wrapper.properties
-    - name: Install rust toolchains for Android
+    - name: Install rust toolchain for Android
       # only required for android builds
       if: inputs.platform == 'android'
       shell: bash
