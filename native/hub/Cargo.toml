@@ -18,7 +18,7 @@ tokio = { version = "1.43.0", features = ["rt", "macros"] }
 messages = "0.3.1"
 anyhow = "1.0.95"
 reqwest = {version = "0.12.12", default-features = false, features = ["rustls-tls"]}
-serde_json = "1.0.137"
+serde_json = "1.0.138"
 serde = {version = "1.0.217", features = ["derive"]}
 dirs = "6.0.0"
 quick-xml = {version = "0.37.2", features = ["serialize"]}
