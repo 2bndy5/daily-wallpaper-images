@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:daily_wallpaper_images/bing.dart';
 import 'package:daily_wallpaper_images/nasa.dart';
 import 'package:flutter/material.dart';
@@ -86,8 +84,8 @@ class _MyHomePageState extends State<MyHomePage> {
                 spacing: 10.0,
                 children: [
                   Expanded(
-                    child: Image.file(
-                      File("assets/app_icon_no_bg.png"),
+                    child: Image.asset(
+                      "assets/app_icon_no_bg.png",
                       color: colorScheme.onPrimaryContainer,
                     ),
                   ),
