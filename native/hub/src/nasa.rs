@@ -11,13 +11,16 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::common::{check_err, DATE_FILE_FMT};
-use crate::messages::*;
+use crate::signals::NasaImageList;
+use crate::{
+    common::{check_err, DATE_FILE_FMT},
+    signals::{DailyImage, NasaRefresh},
+};
 use anyhow::{anyhow, Context, Result};
 use chrono::{Local, NaiveDate};
 use messages::prelude::{async_trait, Actor, Address, Context as MsgContext, Handler};
 use reqwest::Url;
-use rinf::debug_print;
+use rinf::{debug_print, DartSignal, RustSignal};
 use serde::Deserialize;
 use tokio::spawn;
 

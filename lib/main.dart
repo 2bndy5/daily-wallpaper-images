@@ -1,8 +1,8 @@
 import 'package:daily_wallpaper_images/bing.dart';
 import 'package:daily_wallpaper_images/nasa.dart';
+import 'package:daily_wallpaper_images/src/bindings/bindings.dart';
 import 'package:flutter/material.dart';
 import 'package:rinf/rinf.dart';
-import 'package:daily_wallpaper_images/messages/all.dart';
 
 void main() async {
   await initializeRust(assignRustSignal);

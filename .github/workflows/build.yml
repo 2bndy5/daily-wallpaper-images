@@ -47,17 +47,16 @@ jobs:
           cache-flutter-sdk: true
 
       # lint and build
-      - name: Generate messages API
-        run: rinf message
+      - name: Generate signals API
+        run: rinf gen
       - name: Get Flutter dependencies
         run: flutter pub get
       - name: Lint Dart sources
         run: flutter analyze
       - name: Lint Rust sources
         run: cargo clippy
-      # Generated Rust code is unformatted: https://github.com/cunarist/rinf/issues/500
-      # - name: Format Rust sources
-      #   run: cargo fmt --check
+      - name: Format Rust sources
+        run: cargo fmt --check
       - name: Build App
         run: flutter build ${{ matrix.flutter-cmd }}
       - name: Save artifacts
