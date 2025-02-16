@@ -55,9 +55,8 @@ jobs:
         run: flutter analyze
       - name: Lint Rust sources
         run: cargo clippy
-      # Generated Rust code is unformatted: https://github.com/cunarist/rinf/issues/500
-      # - name: Format Rust sources
-      #   run: cargo fmt --check
+      - name: Format Rust sources
+        run: cargo fmt --check
       - name: Build App
         run: flutter build ${{ matrix.flutter-cmd }}
       - name: Save artifacts
