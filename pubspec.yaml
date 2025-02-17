@@ -31,7 +31,7 @@ dependencies:
   flutter:
     sdk: flutter
 
-  rinf: ^7.1.0
+  rinf: ^7.1.1
   protobuf: ^3.1.0
   flutter_launcher_icons: ^0.14.2
   shimmer_animation: ^2.2.2
