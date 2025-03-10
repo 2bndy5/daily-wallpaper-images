@@ -12,17 +12,17 @@ edition = "2021"
 crate-type = ["lib", "cdylib", "staticlib"]
 
 [dependencies]
-rinf = "7.1.0"
-prost = "0.13.4"
-tokio = { version = "1.43.0", features = ["rt", "macros"] }
+rinf = "7.3.0"
+prost = "0.13.5"
+tokio = { version = "1.44.0", features = ["rt", "macros"] }
 messages = "0.3.1"
-anyhow = "1.0.95"
+anyhow = "1.0.97"
 reqwest = {version = "0.12.12", default-features = false, features = ["rustls-tls"]}
-serde_json = "1.0.137"
-serde = {version = "1.0.217", features = ["derive"]}
+serde_json = "1.0.140"
+serde = {version = "1.0.219", features = ["derive"]}
 dirs = "6.0.0"
 quick-xml = {version = "0.37.2", features = ["serialize"]}
-chrono = {version = "0.4.39", features = ["now"]}
+chrono = {version = "0.4.40", features = ["now"]}
 
 [target.'cfg(not(target_os = "android"))'.dependencies]
 wallpaper = {path = "../wallpaper"}
