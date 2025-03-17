@@ -14,10 +14,10 @@ crate-type = ["lib", "cdylib", "staticlib"]
 [dependencies]
 rinf = "7.3.0"
 prost = "0.13.5"
-tokio = { version = "1.44.0", features = ["rt", "macros"] }
+tokio = { version = "1.44.1", features = ["rt", "macros"] }
 messages = "0.3.1"
 anyhow = "1.0.97"
-reqwest = {version = "0.12.12", default-features = false, features = ["rustls-tls"]}
+reqwest = {version = "0.12.14", default-features = false, features = ["rustls-tls"]}
 serde_json = "1.0.140"
 serde = {version = "1.0.219", features = ["derive"]}
 dirs = "6.0.0"
