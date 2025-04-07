@@ -22,6 +22,7 @@ environment:
   sdk: ^3.6.0
 
 # Windows installer config
+# run `dart run msix:create` to create the distributable package
 msix_config:
   display_name: Daily Wallpaper Images
   ## publisher required for self-signing

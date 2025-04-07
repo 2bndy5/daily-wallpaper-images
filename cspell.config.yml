@@ -4,6 +4,7 @@ words:
   - chrono
   - clippy
   - desaturate
+  - msix
   - oneof
   - pubspec
   - reqwest
