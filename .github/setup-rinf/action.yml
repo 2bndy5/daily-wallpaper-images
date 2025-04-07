@@ -109,7 +109,7 @@ runs:
     - name: Install Linux prerequisites
       if: inputs.platform == 'linux'
       shell: bash
-      run: sudo apt-get install -y ninja-build libgtk-3-dev
+      run: sudo apt-get update && sudo apt-get install -y libgtk-3-dev # ninja-build
     - name: Get version numbers for outputs
       id: version-output
       shell: bash
