@@ -3,14 +3,15 @@
 
 mod bing;
 mod common;
-mod messages;
 mod nasa;
 mod set_wallpaper;
+mod signals;
+use rinf::{dart_shutdown, write_interface};
 
 // Uncomment below to target the web.
 // use tokio_with_wasm::alias as tokio;
 
-rinf::write_interface!();
+write_interface!();
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
@@ -24,5 +25,5 @@ async fn main() {
     tokio::spawn(set_wallpaper::create_actors());
 
     // Keep the main function running until Dart shutdown.
-    rinf::dart_shutdown().await;
+    dart_shutdown().await;
 }

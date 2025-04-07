@@ -2,18 +2,17 @@ import 'dart:io';
 
 // import 'package:async_wallpaper/async_wallpaper.dart';
 import 'package:flutter/material.dart';
-import 'package:daily_wallpaper_images/messages/all.dart';
+import 'package:daily_wallpaper_images/src/bindings/bindings.dart';
 import 'package:shimmer_animation/shimmer_animation.dart';
 
 mixin ImageListPage {
   Icon _getModeIcon(WallpaperMode mode) {
     return Icon(switch (mode) {
-      WallpaperMode.Fit => Icons.fit_screen,
-      WallpaperMode.Stretch => Icons.zoom_out_map,
-      WallpaperMode.Center => Icons.zoom_in_map,
-      WallpaperMode.Tile => Icons.grid_view,
-      WallpaperMode.Crop => Icons.crop,
-      _ => throw UnimplementedError("Unsupported wallpaper mode specified"),
+      WallpaperMode.fit => Icons.fit_screen,
+      WallpaperMode.stretch => Icons.zoom_out_map,
+      WallpaperMode.center => Icons.zoom_in_map,
+      WallpaperMode.tile => Icons.grid_view,
+      WallpaperMode.crop => Icons.crop,
     });
   }
 
@@ -21,7 +20,7 @@ mixin ImageListPage {
     showDialog<void>(
       context: context,
       builder: (context) {
-        var selectedMode = WallpaperMode.Fit;
+        var selectedMode = WallpaperMode.fit;
         return AlertDialog(
           title: Text(img.date),
           content: Column(
@@ -42,7 +41,7 @@ mixin ImageListPage {
               child: const Text('Cancel'),
             ),
             DropdownMenu<WallpaperMode>(
-              initialSelection: WallpaperMode.Fit,
+              initialSelection: WallpaperMode.fit,
               leadingIcon: _getModeIcon(selectedMode),
               label: const Text("Wallpaper Mode"),
               dropdownMenuEntries:

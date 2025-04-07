@@ -33,7 +33,7 @@ migrate_working_dir/
 .pub/
 /build/
 
-# Symbolication related
+# Symbolization related
 app.*.symbols
 
 # Obfuscation related
@@ -48,5 +48,7 @@ app.*.map.json
 .cargo/
 target/
 
-# Generated messages
-*/**/messages/
+# Generated dart code
+/lib/src/bincode
+/lib/src/serde
+/lib/src/bindings

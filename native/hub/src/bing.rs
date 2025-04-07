@@ -10,11 +10,11 @@ use std::path::Path;
 use std::{fs, io::Write, path::PathBuf};
 
 use crate::common::{check_err, DATE_FILE_FMT};
-use crate::messages::*;
+use crate::signals::{BingImageList, BingRefresh, DailyImage};
 use anyhow::{anyhow, Context, Result};
 use chrono::{Local, NaiveDate};
 use messages::prelude::{async_trait, Actor, Address, Context as MsgContext, Handler};
-use rinf::debug_print;
+use rinf::{debug_print, DartSignal, RustSignal};
 use serde::Deserialize;
 use tokio::spawn;
 

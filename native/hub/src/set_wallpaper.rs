@@ -5,10 +5,10 @@
 //! To build a solid app, do not communicate by sharing memory;
 //! instead, share memory by communicating.
 #![cfg(not(target_os = "android"))]
-use crate::messages::*;
+use crate::signals::{SetWallpaper, WallpaperMode};
 use anyhow::Result;
 use messages::prelude::{async_trait, Actor, Address, Context as MsgContext, Handler};
-use rinf::debug_print;
+use rinf::{debug_print, DartSignal};
 use tokio::spawn;
 
 // The actor that holds the counter state and handles messages.
@@ -42,16 +42,13 @@ impl Handler<SetWallpaper> for WallpaperActor {
     type Result = Result<()>;
     // Handles messages received by the actor.
     async fn handle(&mut self, msg: SetWallpaper, _context: &MsgContext<Self>) -> Self::Result {
-        let selection = match msg.selected {
-            Some(s) => s,
-            None => return Ok(()),
-        };
+        let selection = msg.selected;
         debug_print!(
             "Setting wallpaper to {} (mode: {:?})",
             selection.path,
-            selection.mode()
+            selection.mode
         );
-        let mode = match &selection.mode() {
+        let mode = match &selection.mode {
             WallpaperMode::Center => wallpaper::Mode::Center,
             WallpaperMode::Crop => wallpaper::Mode::Crop,
             WallpaperMode::Fit => wallpaper::Mode::Fit,
