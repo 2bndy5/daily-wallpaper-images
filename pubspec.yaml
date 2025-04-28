@@ -43,7 +43,7 @@ dependencies:
   flutter:
     sdk: flutter
 
-  rinf: ^8.0.0
+  rinf: ^8.1.0
   protobuf: ^4.0.0
   flutter_launcher_icons: ^0.14.2
   shimmer_animation: ^2.2.2
@@ -60,7 +60,7 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^5.0.0
-  msix: ^3.16.8
+  msix: ^3.16.9
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
