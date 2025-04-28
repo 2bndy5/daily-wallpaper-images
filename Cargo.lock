@@ -43,9 +43,9 @@ dependencies = [
 
 [[package]]
 name = "anyhow"
-version = "1.0.97"
+version = "1.0.98"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dcfed56ad506cb2c684a14971b8861fdc3baaaae314b9e5f9bb532cbe3ba7a4f"
+checksum = "e16d2d3311acee920a9eb8d33b8cbc1787ce4a264e85f964c2404b969bdcd487"
 
 [[package]]
 name = "async-channel"
@@ -937,9 +937,9 @@ dependencies = [
 
 [[package]]
 name = "quick-xml"
-version = "0.37.4"
+version = "0.37.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a4ce8c88de324ff838700f36fb6ab86c96df0e3c4ab6ef3a9b2044465cce1369"
+checksum = "331e97a1af0bf59823e6eadffe373d7b27f485be8748f71471c662c1f269b7fb"
 dependencies = [
  "memchr",
  "serde",
@@ -1100,9 +1100,9 @@ dependencies = [
 
 [[package]]
 name = "rinf"
-version = "8.0.0"
+version = "8.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "27ef969a543f9c5389154462b0c8feb810769aab0ee65f94aee4eb9689ce2771"
+checksum = "9390839051ed84b3dbd9567aa63e4fb9e2f13b06e3dc91dd6101e93eebd5d9d8"
 dependencies = [
  "allo-isolate",
  "bincode",
@@ -1115,9 +1115,9 @@ dependencies = [
 
 [[package]]
 name = "rinf_proc"
-version = "8.0.0"
+version = "8.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dd35603f002a7c033377bf41c4b8dc375a0bd0783804d0ca23d75b49a382fa57"
+checksum = "39fc6add9cbee0ae75f1fcbb4bb2bc8816e116377b3fc755de51d183c14821ec"
 dependencies = [
  "convert_case",
  "proc-macro2",
