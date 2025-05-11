@@ -1,6 +1,8 @@
 version: "0.2"
 words:
+  - bindgen
   - binstall
+  - cdylib
   - chrono
   - clippy
   - desaturate
@@ -9,9 +11,11 @@ words:
   - pubspec
   - reqwest
   - rinf
+  - rustls
   - rustup
   - serde
   - startdate
+  - staticlib
   - temurin
   - thiserror
 ignorePaths:

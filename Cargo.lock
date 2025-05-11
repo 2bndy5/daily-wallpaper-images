@@ -271,12 +271,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "either"
-version = "1.15.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "48c757948c5ede0e46177b7add2e67155f70e33c07fea8284df6576da70b3719"
-
-[[package]]
 name = "enquote"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -491,7 +485,6 @@ dependencies = [
  "chrono",
  "dirs",
  "messages",
- "prost",
  "quick-xml",
  "reqwest",
  "rinf",
@@ -728,15 +721,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "469fb0b9cefa57e3ef31275ee7cacb78f2fdca44e4765491884a2b119d4eb130"
 
 [[package]]
-name = "itertools"
-version = "0.14.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2b192c782037fadd9cfa75548310488aabdbf3d2da73885b31bd0abd03351285"
-dependencies = [
- "either",
-]
-
-[[package]]
 name = "itoa"
 version = "1.0.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -913,29 +897,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "prost"
-version = "0.13.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2796faa41db3ec313a31f7624d9286acf277b52de526150b7e69f3debf891ee5"
-dependencies = [
- "bytes",
- "prost-derive",
-]
-
-[[package]]
-name = "prost-derive"
-version = "0.13.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8a56d757972c98b346a9b766e3f02746cde6dd1cd1d1d563472929fdd74bec4d"
-dependencies = [
- "anyhow",
- "itertools",
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
 name = "quick-xml"
 version = "0.37.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1100,24 +1061,25 @@ dependencies = [
 
 [[package]]
 name = "rinf"
-version = "8.0.0"
+version = "8.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "27ef969a543f9c5389154462b0c8feb810769aab0ee65f94aee4eb9689ce2771"
+checksum = "bc33d37e07383b202145205a96f356afd99de9b491b1cdc35b341794c597614f"
 dependencies = [
  "allo-isolate",
  "bincode",
  "js-sys",
  "os-thread-local",
  "rinf_proc",
+ "serde",
  "wasm-bindgen",
  "wasm-bindgen-futures",
 ]
 
 [[package]]
 name = "rinf_proc"
-version = "8.0.0"
+version = "8.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dd35603f002a7c033377bf41c4b8dc375a0bd0783804d0ca23d75b49a382fa57"
+checksum = "b9e4ae41bcfd359941badeeacb11dc95a84536246e940e1fcc36f04b6a53b5d9"
 dependencies = [
  "convert_case",
  "proc-macro2",
