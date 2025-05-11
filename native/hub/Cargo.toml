@@ -13,15 +13,15 @@ crate-type = ["lib", "cdylib", "staticlib"]
 
 [dependencies]
 rinf = "8.1.0"
-tokio = { version = "1.44.2", features = ["rt", "macros"] }
+tokio = { version = "1.45.0", features = ["rt", "macros"] }
 messages = "0.3.1"
-anyhow = "1.0.97"
+anyhow = "1.0.98"
 reqwest = {version = "0.12.15", default-features = false, features = ["rustls-tls"]}
 serde_json = "1.0.140"
 serde = {version = "1", features = ["derive"]}
 dirs = "6.0.0"
-quick-xml = {version = "0.37.4", features = ["serialize"]}
-chrono = {version = "0.4.40", features = ["now"]}
+quick-xml = {version = "0.37.5", features = ["serialize"]}
+chrono = {version = "0.4.41", features = ["now"]}
 
 [target.'cfg(not(target_os = "android"))'.dependencies]
 wallpaper = {path = "../wallpaper"}
