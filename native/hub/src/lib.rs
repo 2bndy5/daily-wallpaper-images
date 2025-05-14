@@ -5,6 +5,7 @@ mod bing;
 mod common;
 mod nasa;
 mod set_wallpaper;
+mod spotlight;
 mod signals;
 use rinf::{dart_shutdown, write_interface};
 
@@ -21,6 +22,7 @@ async fn main() {
     // or the equivalent provided by your async library.
     tokio::spawn(bing::create_actors());
     tokio::spawn(nasa::create_actors());
+    tokio::spawn(spotlight::create_actors());
     #[cfg(not(target_os = "android"))]
     tokio::spawn(set_wallpaper::create_actors());
 
