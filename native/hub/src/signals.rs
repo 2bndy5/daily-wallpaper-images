@@ -17,7 +17,6 @@ pub struct SpotlightReset;
 pub struct DailyImage {
     pub url: String,
     pub date: String,
-    pub title: String,
     pub description: String,
 }
 

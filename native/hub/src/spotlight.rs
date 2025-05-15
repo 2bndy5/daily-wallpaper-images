@@ -38,7 +38,6 @@ impl From<SpotlightImage> for DailyImage {
         DailyImage {
             url: String::new(),
             date: String::new(),
-            title: String::new(),
             description: value
                 .icon_hover_text
                 .trim_end_matches("\r\nRight-click to learn more")

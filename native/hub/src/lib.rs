@@ -5,8 +5,8 @@ mod bing;
 mod common;
 mod nasa;
 mod set_wallpaper;
-mod spotlight;
 mod signals;
+mod spotlight;
 use rinf::{dart_shutdown, write_interface};
 
 // Uncomment below to target the web.

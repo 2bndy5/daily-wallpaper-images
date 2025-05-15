@@ -23,7 +23,6 @@ pub struct BingImage {
     pub url: String,
     #[serde(rename(deserialize = "startdate"))]
     pub start_date: String,
-    pub title: String,
     pub copyright: String,
 }
 
@@ -114,7 +113,6 @@ impl Handler<BingRefreshMsg> for BingActor {
                         .map(|d| d.format(DATE_FILE_FMT).to_string())
                         .unwrap_or(i.start_date.clone()),
                     description: i.copyright.clone(),
-                    title: i.title.clone(),
                 })
                 .collect(),
         };

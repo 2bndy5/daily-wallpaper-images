@@ -73,7 +73,6 @@ pub struct NasaChannel {
 
 #[derive(Debug, Deserialize)]
 pub struct NasaItem {
-    pub title: String,
     pub description: String,
     #[serde(rename = "pubDate")]
     pub pub_date: String,
@@ -136,7 +135,6 @@ impl Handler<NasaRefreshMsg> for NasaActor {
                         .map(|d| d.format(DATE_FILE_FMT).to_string())
                         .unwrap_or(i.pub_date.clone()),
                     description: i.description.clone(),
-                    title: i.title.clone(),
                 })
                 .collect(),
         };
