@@ -7,11 +7,16 @@ pub struct BingRefresh;
 #[derive(Debug, DartSignal, Deserialize)]
 pub struct NasaRefresh;
 
+#[derive(Debug, DartSignal, Deserialize)]
+pub struct SpotlightRefresh;
+
+#[derive(Debug, DartSignal, Deserialize)]
+pub struct SpotlightReset;
+
 #[derive(Debug, SignalPiece, Serialize)]
 pub struct DailyImage {
     pub url: String,
     pub date: String,
-    pub title: String,
     pub description: String,
 }
 
@@ -22,6 +27,11 @@ pub struct NasaImageList {
 
 #[derive(Debug, RustSignal, Serialize)]
 pub struct BingImageList {
+    pub images: Vec<DailyImage>,
+}
+
+#[derive(Debug, RustSignal, Serialize)]
+pub struct SpotlightImageList {
     pub images: Vec<DailyImage>,
 }
 

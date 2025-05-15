@@ -1,5 +1,6 @@
 import 'package:daily_wallpaper_images/bing.dart';
 import 'package:daily_wallpaper_images/nasa.dart';
+import 'package:daily_wallpaper_images/spotlight.dart';
 import 'package:daily_wallpaper_images/src/bindings/bindings.dart';
 import 'package:flutter/material.dart';
 import 'package:rinf/rinf.dart';
@@ -60,6 +61,15 @@ class _MyHomePageState extends State<MyHomePage> {
         backgroundColor: colorScheme.primaryContainer,
         foregroundColor: colorScheme.onPrimaryContainer,
         title: Text(widget.title),
+        actions: _selectedSource < 2
+            ? []
+            : [
+                IconButton(
+                    onPressed: () {
+                      SpotlightReset().sendSignalToRust();
+                    },
+                    icon: Icon(Icons.refresh))
+              ],
         leading: Builder(
           builder: (context) {
             return IconButton(
@@ -110,10 +120,17 @@ class _MyHomePageState extends State<MyHomePage> {
                 Navigator.pop(context);
               },
             ),
+            ListTile(
+              title: const Text('Windows Spotlight'),
+              onTap: () {
+                _onItemTapped(2);
+                Navigator.pop(context);
+              },
+            ),
           ],
         ),
       ),
-      body: [BingPage(), NasaPage()][_selectedSource],
+      body: [BingPage(), NasaPage(), SpotlightPage()][_selectedSource],
     );
   }
 }

@@ -16,6 +16,10 @@ mixin ImageListPage {
     });
   }
 
+  String _getModeText(WallpaperMode mode) {
+    return mode.name.substring(0, 1).toUpperCase() + mode.name.substring(1);
+  }
+
   void _pictureModal(BuildContext context, DailyImage img) {
     showDialog<void>(
       context: context,
@@ -42,13 +46,12 @@ mixin ImageListPage {
             ),
             DropdownMenu<WallpaperMode>(
               initialSelection: WallpaperMode.fit,
-              leadingIcon: _getModeIcon(selectedMode),
               label: const Text("Wallpaper Mode"),
               dropdownMenuEntries:
                   WallpaperMode.values.map<DropdownMenuEntry<WallpaperMode>>(
                 (entry) {
                   return DropdownMenuEntry(
-                    label: entry.toString(),
+                    label: _getModeText(entry),
                     value: entry,
                     leadingIcon: _getModeIcon(entry),
                   );
