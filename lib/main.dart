@@ -61,6 +61,15 @@ class _MyHomePageState extends State<MyHomePage> {
         backgroundColor: colorScheme.primaryContainer,
         foregroundColor: colorScheme.onPrimaryContainer,
         title: Text(widget.title),
+        actions: _selectedSource < 2
+            ? []
+            : [
+                IconButton(
+                    onPressed: () {
+                      SpotlightReset().sendSignalToRust();
+                    },
+                    icon: Icon(Icons.refresh))
+              ],
         leading: Builder(
           builder: (context) {
             return IconButton(

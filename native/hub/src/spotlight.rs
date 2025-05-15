@@ -5,15 +5,13 @@
 //! To build a solid app, do not communicate by sharing memory;
 //! instead, share memory by communicating.
 
-use std::collections::HashMap;
 use std::fmt::Debug;
 use std::path::Path;
 use std::{fs, io::Write, path::PathBuf};
 
-use crate::common::{check_err, DATE_FILE_FMT};
-use crate::signals::{DailyImage, SpotlightImageList, SpotlightRefresh};
+use crate::common::check_err;
+use crate::signals::{DailyImage, SpotlightImageList, SpotlightRefresh, SpotlightReset};
 use anyhow::{anyhow, Context, Result};
-use chrono::Local;
 use messages::prelude::{async_trait, Actor, Address, Context as MsgContext, Handler};
 use rinf::{debug_print, DartSignal, RustSignal};
 use serde::Deserialize;
@@ -39,7 +37,7 @@ impl From<SpotlightImage> for DailyImage {
     fn from(value: SpotlightImage) -> Self {
         DailyImage {
             url: String::new(),
-            date: value.entity_id,
+            date: String::new(),
             title: String::new(),
             description: value
                 .icon_hover_text
@@ -69,8 +67,11 @@ pub struct SpotlightImages {
     pub batch_response: SpotlightBathInfo,
 }
 
-// The type for instigating the actor.
+// The type for telling the actor to get new images.
 pub struct SpotlightRefreshMsg;
+
+// The type for telling the actor to set the cache.
+pub struct SpotlightResetMsg;
 
 // The actor that holds the counter state and handles messages.
 pub struct SpotlightActor {
@@ -82,8 +83,11 @@ pub struct SpotlightActor {
 impl Actor for SpotlightActor {}
 
 impl SpotlightActor {
+    const INFO_FILE: &str = "info.json";
+
     pub fn new(spotlight_addr: Address<Self>, app_cache_dir: PathBuf) -> Self {
-        spawn(Self::listen_to_refresh_trigger(spotlight_addr));
+        spawn(Self::listen_to_refresh_trigger(spotlight_addr.clone()));
+        spawn(Self::listen_to_reset_trigger(spotlight_addr));
         SpotlightActor { app_cache_dir }
     }
 
@@ -98,6 +102,39 @@ impl SpotlightActor {
             let _ = spotlight_addr.send(SpotlightRefreshMsg).await;
         }
     }
+
+    async fn listen_to_reset_trigger(mut spotlight_addr: Address<Self>) {
+        // Spawn an asynchronous task to listen for
+        // button click signals from Dart.
+        let receiver = SpotlightReset::get_dart_signal_receiver();
+        // Continuously listen for signals.
+        while let Some(_dart_signal) = receiver.recv().await {
+            debug_print!("resetting image list from Windows Spotlight");
+            // send reset message to the actor.
+            let _ = spotlight_addr.send(SpotlightResetMsg).await;
+            // Send refresh message to the actor.
+            let _ = spotlight_addr.send(SpotlightRefreshMsg).await;
+        }
+    }
+}
+
+#[async_trait]
+impl Handler<SpotlightResetMsg> for SpotlightActor {
+    type Result = Result<()>;
+    // Handles messages received by the actor.
+    async fn handle(
+        &mut self,
+        _msg: SpotlightResetMsg,
+        _context: &MsgContext<Self>,
+    ) -> Self::Result {
+        debug_print!("Resetting Windows Spotlight images");
+        let cached_metadata = self.app_cache_dir.join(Path::new(Self::INFO_FILE));
+        if cached_metadata.exists() {
+            fs::remove_file(cached_metadata)
+                .with_context(|| "Failed to delete cached info about Windows Spotlight images.")?;
+        }
+        Ok(())
+    }
 }
 
 #[async_trait]
@@ -110,9 +147,7 @@ impl Handler<SpotlightRefreshMsg> for SpotlightActor {
         _context: &MsgContext<Self>,
     ) -> Self::Result {
         debug_print!("Getting Windows Spotlight images");
-        let now = Local::now().date_naive();
-        let today = format!("{}.json", now.format(DATE_FILE_FMT));
-        let cached_metadata = self.app_cache_dir.join(Path::new(&today));
+        let cached_metadata = self.app_cache_dir.join(Path::new(Self::INFO_FILE));
         let text = if cached_metadata.exists() {
             check_err(
                 fs::read_to_string(&cached_metadata)
@@ -142,15 +177,15 @@ impl Handler<SpotlightRefreshMsg> for SpotlightActor {
         .batch_response
         .items;
         let mut image_list = SpotlightImageList { images: vec![] };
-        let mut new_item_ids = HashMap::new();
+        let mut new_item_ids = vec![];
         for item in items {
             let content = serde_json::from_str::<SpotlightItemContent>(item.item.trim_matches('`'))
                 .with_context(|| "Failed to deserialize Windows Spotlight image info")?
                 .ad;
-            new_item_ids.insert(
+            new_item_ids.push((
                 format!("{}.jpg", content.entity_id),
                 content.landscape_image.asset.clone(),
-            );
+            ));
             image_list.images.push(content.into());
         }
         for (i, (id, url)) in new_item_ids.iter().enumerate() {
@@ -180,6 +215,7 @@ impl Handler<SpotlightRefreshMsg> for SpotlightActor {
             image_list.send_signal_to_dart();
         }
 
+        let new_ids = new_item_ids.iter().map(|i| i.0.clone()).collect::<Vec<_>>();
         // dispose outdated cached images
         for entry in (check_err(
             fs::read_dir(&self.app_cache_dir)
@@ -190,22 +226,25 @@ impl Handler<SpotlightRefreshMsg> for SpotlightActor {
             if !entry.path().is_file() {
                 continue;
             }
-            if !new_item_ids.contains_key(
-                &entry
-                    .path()
-                    .file_name()
-                    .unwrap_or_default()
-                    .to_string_lossy()
-                    .to_string(),
-            ) || (check_err(
+            if check_err(
                 entry
                     .path()
                     .extension()
                     .ok_or(anyhow!("Failed to get cached file's extension")),
             )?
             .to_string_lossy()
-            .ends_with("json"))
+            .ends_with("json")
             {
+                continue;
+            }
+            if !new_ids.contains(
+                &entry
+                    .path()
+                    .file_name()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .to_string(),
+            ) {
                 debug_print!("Deleting outdated cache file {:?}", entry.path());
                 check_err(
                     fs::remove_file(entry.path())

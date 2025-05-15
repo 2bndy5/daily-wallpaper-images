@@ -10,6 +10,9 @@ pub struct NasaRefresh;
 #[derive(Debug, DartSignal, Deserialize)]
 pub struct SpotlightRefresh;
 
+#[derive(Debug, DartSignal, Deserialize)]
+pub struct SpotlightReset;
+
 #[derive(Debug, SignalPiece, Serialize)]
 pub struct DailyImage {
     pub url: String,
