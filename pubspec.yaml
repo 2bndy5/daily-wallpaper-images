@@ -43,7 +43,7 @@ dependencies:
   flutter:
     sdk: flutter
 
-  rinf: ^8.1.0
+  rinf: ^8.3.0
   flutter_launcher_icons: ^0.14.2
   shimmer_animation: ^2.2.2
   tuple: ^2.0.2
