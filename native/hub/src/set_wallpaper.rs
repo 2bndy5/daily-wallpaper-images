@@ -67,7 +67,6 @@ impl Handler<SetWallpaper> for WallpaperActor {
         if let Err(e) = client.set_wallpaper(&selection.path, mode) {
             debug_print!("Failed to set the desktop wallpaper with `mode` {mode:?}: {e:?}");
         }
-        drop(client);
         Ok(())
     }
 }
