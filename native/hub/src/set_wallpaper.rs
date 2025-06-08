@@ -5,11 +5,16 @@
 //! To build a solid app, do not communicate by sharing memory;
 //! instead, share memory by communicating.
 #![cfg(not(target_os = "android"))]
-use crate::signals::{SetWallpaper, WallpaperMode};
-use anyhow::Result;
+
+use crate::{
+    common::check_err,
+    signals::{SetWallpaper, WallpaperMode},
+};
+use anyhow::{anyhow, Result};
 use messages::prelude::{async_trait, Actor, Address, Context as MsgContext, Handler};
 use rinf::{debug_print, DartSignal};
 use tokio::spawn;
+use wallpaper::{DesktopClient, DesktopWallpaper};
 
 // The actor that holds the counter state and handles messages.
 pub struct WallpaperActor;
@@ -55,13 +60,14 @@ impl Handler<SetWallpaper> for WallpaperActor {
             WallpaperMode::Stretch => wallpaper::Mode::Stretch,
             WallpaperMode::Tile => wallpaper::Mode::Tile,
         };
-        if let Err(e) = wallpaper::set_from_path(&selection.path) {
-            debug_print!("Failed to set the desktop wallpaper: {e:?}");
+        let mut client = check_err(
+            DesktopWallpaper::new()
+                .map_err(|e| anyhow!("Failed to init desktop wallpaper client: {e:?}")),
+        )?;
+        if let Err(e) = client.set_wallpaper(&selection.path, mode) {
+            debug_print!("Failed to set the desktop wallpaper with `mode` {mode:?}: {e:?}");
         }
-        if let Err(e) = wallpaper::set_mode(mode) {
-            debug_print!("Failed to set wallpaper sizing `mode`: {e:?}");
-        }
-
+        drop(client);
         Ok(())
     }
 }
