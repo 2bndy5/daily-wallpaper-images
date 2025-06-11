@@ -24,7 +24,9 @@ async fn main() {
     tokio::spawn(nasa::create_actors());
     tokio::spawn(spotlight::create_actors());
     #[cfg(not(target_os = "android"))]
-    tokio::spawn(set_wallpaper::create_actors());
+    {
+        tokio::spawn(set_wallpaper::create_actors());
+    }
 
     // Keep the main function running until Dart shutdown.
     dart_shutdown().await;
