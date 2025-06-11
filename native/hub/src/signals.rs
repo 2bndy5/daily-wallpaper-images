@@ -54,3 +54,21 @@ pub struct WallpaperSelection {
 pub struct SetWallpaper {
     pub selected: WallpaperSelection,
 }
+
+#[derive(Debug, RustSignal, Serialize)]
+pub struct NotificationAlert {
+    pub title: String,
+    pub body: String,
+    pub percent: Option<f32>,
+    pub severity: NotificationSeverity,
+    pub status_message: String,
+}
+
+#[allow(dead_code)]
+#[derive(Debug, SignalPiece, Serialize)]
+pub enum NotificationSeverity {
+    Debug,
+    Info,
+    Warning,
+    Error,
+}

@@ -7,10 +7,11 @@
 
 use std::fmt::Debug;
 use std::path::Path;
+use std::time::{Duration, Instant};
 use std::{fs, io::Write, path::PathBuf};
 
 use crate::common::{check_err, DATE_FILE_FMT};
-use crate::signals::{BingImageList, BingRefresh, DailyImage};
+use crate::signals::{BingImageList, BingRefresh, DailyImage, NotificationAlert, NotificationSeverity};
 use anyhow::{anyhow, Context, Result};
 use chrono::{Local, NaiveDate};
 use messages::prelude::{async_trait, Actor, Address, Context as MsgContext, Handler};
@@ -67,12 +68,34 @@ fn parse_date(date: &str) -> Result<NaiveDate> {
         .with_context(|| "Failed to parse Bing picture's date.")
 }
 
+fn condense_duration(duration: Duration) -> String {
+    let seconds = duration.as_secs();
+    if seconds > 0 {
+        format!("{seconds} sec")
+    } else {
+        let millis = duration.as_millis();
+        format!("{millis} ms")
+    }
+}
+
 #[async_trait]
 impl Handler<BingRefreshMsg> for BingActor {
     type Result = Result<()>;
     // Handles messages received by the actor.
     async fn handle(&mut self, _msg: BingRefreshMsg, _context: &MsgContext<Self>) -> Self::Result {
-        debug_print!("Getting Bing images");
+        let debug_title = "Getting Bing images";
+        debug_print!("{debug_title}");
+        let mut notification = NotificationAlert {
+            title: debug_title.to_string(),
+            body: "checking cache".to_string(),
+            percent: Some(0.0),
+            severity: NotificationSeverity::Info,
+            status_message: String::new(),
+        };
+        // notification.send_signal_to_dart();
+        let timer = Instant::now();
+        let mut total_steps = 1;
+
         let now = Local::now().date_naive();
         let today = format!("{}.json", now.format(DATE_FILE_FMT));
         let cached_metadata = self.app_cache_dir.join(Path::new(&today));
@@ -82,6 +105,10 @@ impl Handler<BingRefreshMsg> for BingActor {
                     .with_context(|| "Failed to read cached Bing metadata"),
             )?
         } else {
+            notification.body = "Fetching data from Bing".to_string();
+            notification.status_message = condense_duration(timer.elapsed());
+            // notification.send_signal_to_dart();
+            total_steps += 1;
             let response = check_err(
                 reqwest::get("https://www.bing.com/HPImageArchive.aspx?format=js&idx=0&n=14")
                     .await
@@ -116,7 +143,9 @@ impl Handler<BingRefreshMsg> for BingActor {
                 })
                 .collect(),
         };
+        image_list.send_signal_to_dart();
         let mut last_day = None;
+        let total_images = images.len();
         for (i, img) in images.into_iter().enumerate() {
             last_day = Some(parse_date(&img.start_date)?);
             let date = last_day.unwrap().format(DATE_FILE_FMT);
@@ -144,8 +173,10 @@ impl Handler<BingRefreshMsg> for BingActor {
                 )?;
             }
             image_list.images[i].url = file_name.to_string_lossy().to_string();
-            // The send method is generated from a marked Protobuf message.
             image_list.send_signal_to_dart();
+            notification.body = format!("Processed {date}");
+            notification.percent = Some(((i + total_steps) as f32) / ((total_images + total_steps) as f32));
+            // notification.send_signal_to_dart();
         }
 
         // dispose outdated cached images
@@ -188,6 +219,11 @@ impl Handler<BingRefreshMsg> for BingActor {
                 }
             }
         }
+        let elapsed = timer.elapsed();
+        notification.percent = Some(100.0);
+        notification.body = "Cache updated".to_string();
+        notification.status_message = condense_duration(elapsed);
+        notification.send_signal_to_dart();
         Ok(())
     }
 }
