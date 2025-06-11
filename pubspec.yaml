@@ -44,7 +44,7 @@ dependencies:
     sdk: flutter
 
   rinf: ^8.1.0
-  flutter_launcher_icons: ^0.14.2
+  flutter_launcher_icons: ^0.14.4
   shimmer_animation: ^2.2.2
   tuple: ^2.0.2
   # async_wallpaper: ^2.1.0
