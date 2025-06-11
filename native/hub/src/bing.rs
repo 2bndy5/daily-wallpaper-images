@@ -11,7 +11,9 @@ use std::time::{Duration, Instant};
 use std::{fs, io::Write, path::PathBuf};
 
 use crate::common::{check_err, DATE_FILE_FMT};
-use crate::signals::{BingImageList, BingRefresh, DailyImage, NotificationAlert, NotificationSeverity};
+use crate::signals::{
+    BingImageList, BingRefresh, DailyImage, NotificationAlert, NotificationSeverity,
+};
 use anyhow::{anyhow, Context, Result};
 use chrono::{Local, NaiveDate};
 use messages::prelude::{async_trait, Actor, Address, Context as MsgContext, Handler};
@@ -175,7 +177,8 @@ impl Handler<BingRefreshMsg> for BingActor {
             image_list.images[i].url = file_name.to_string_lossy().to_string();
             image_list.send_signal_to_dart();
             notification.body = format!("Processed {date}");
-            notification.percent = Some(((i + total_steps) as f32) / ((total_images + total_steps) as f32));
+            notification.percent =
+                Some(((i + total_steps) as f32) / ((total_images + total_steps) as f32));
             // notification.send_signal_to_dart();
         }
 
