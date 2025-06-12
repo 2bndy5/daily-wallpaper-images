@@ -13,9 +13,12 @@ This app aims to support
 - [ ] MacOS
 
 Platforms in the above list with a checkmark have been tested.
+
 This app can build/compile for Android, but it does not run correctly (possibly a TLS certificate problem).
+
 I need a MacOS user(s) to test the MacOS builds.
-IOS does not allow programmatically setting the device's wallpaper.
+
+To my knowledge, IOS does not allow programmatically setting the device's wallpaper.
 
 ### Linux desktop environments
 
@@ -25,8 +28,8 @@ See the supported list of desktop environments in [my fork of wallpaper.rs](http
 
 ### Windows
 
-On windows, this app seems to have trouble setting the wallpaper for _virtual_ desktops.
-Technically, this app should set the wallpaper for all monitors' desktops, but this has not been tested (yet).
+On windows, this app sets the wallpaper for all monitors' desktops.
+But this can be made platform-exclusive option.
 
 ## Building from source
 
