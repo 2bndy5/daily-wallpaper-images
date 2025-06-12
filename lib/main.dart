@@ -32,14 +32,13 @@ class MyApp extends StatelessWidget {
           brightness: Brightness.dark,
         ),
       ),
-      home: const MyHomePage(title: 'Daily Wallpaper Images'),
+      home: const MyHomePage(),
     );
   }
 }
 
 class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-  final String title;
+  const MyHomePage({super.key});
 
   @override
   State<MyHomePage> createState() => _MyHomePageState();
@@ -159,49 +158,49 @@ class _MyHomePageState extends State<MyHomePage> {
             )
           : null,
       endDrawer: Drawer(
-        child: StreamBuilder(
-            stream: NotificationAlert.rustSignalStream,
-            builder: (context, asyncSnapshot) {
-              if (asyncSnapshot.hasData) {
-                final note = asyncSnapshot.data!.message;
-                setState(() {
-                  notifications.update(note);
-                });
-              }
+          child: Column(
+        children: <Widget>[
+          DrawerHeader(
+            decoration: BoxDecoration(
+              color: colorScheme.primaryContainer,
+            ),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    IconButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                      },
+                      icon: Icon(Icons.close),
+                    ),
+                  ],
+                ),
+                Expanded(
+                  child: Align(
+                    alignment: AlignmentDirectional.bottomStart,
+                    child: Text("Notifications"),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: StreamBuilder(
+                stream: NotificationAlert.rustSignalStream,
+                builder: (context, asyncSnapshot) {
+                  if (asyncSnapshot.hasData) {
+                    final note = asyncSnapshot.data!.message;
+                    notifications.update(note);
+                  }
 
-              return ListView(
-                padding: EdgeInsets.zero,
-                children: <Widget>[
-                      DrawerHeader(
-                        decoration: BoxDecoration(
-                          color: colorScheme.primaryContainer,
-                        ),
-                        child: Column(
-                          children: [
-                            Row(
-                              children: [
-                                IconButton(
-                                  onPressed: () {
-                                    Navigator.pop(context);
-                                  },
-                                  icon: Icon(Icons.close),
-                                ),
-                              ],
-                            ),
-                            Expanded(
-                              child: Align(
-                                alignment: AlignmentDirectional.bottomStart,
-                                child: Text("Notifications"),
-                              ),
-                            ),
-                          ],
-                        ),
-                      )
-                    ] +
-                    notifications.getNotifications(),
-              );
-            }),
-      ),
+                  return ListView(
+                    children: notifications.getNotifications(),
+                  );
+                }),
+          )
+        ],
+      )),
     );
   }
 }

@@ -7,10 +7,13 @@
 
 use std::fmt::Debug;
 use std::path::Path;
-use std::{fs, io::Write, path::PathBuf};
+use std::{fs, io::Write, path::PathBuf, time::Instant};
 
-use crate::common::check_err;
-use crate::signals::{DailyImage, SpotlightImageList, SpotlightRefresh, SpotlightReset};
+use crate::common::{check_err, condense_duration};
+use crate::signals::{
+    DailyImage, NotificationAlert, NotificationSeverity, SpotlightImageList, SpotlightRefresh,
+    SpotlightReset,
+};
 use anyhow::{anyhow, Context, Result};
 use messages::prelude::{async_trait, Actor, Address, Context as MsgContext, Handler};
 use rinf::{debug_print, DartSignal, RustSignal};
@@ -145,7 +148,19 @@ impl Handler<SpotlightRefreshMsg> for SpotlightActor {
         _msg: SpotlightRefreshMsg,
         _context: &MsgContext<Self>,
     ) -> Self::Result {
-        debug_print!("Getting Windows Spotlight images");
+        let debug_title = "Getting Windows Spotlight images";
+        debug_print!("{debug_title}");
+        let mut notification = NotificationAlert {
+            title: debug_title.to_string(),
+            body: "checking cache".to_string(),
+            percent: Some(0.0),
+            severity: NotificationSeverity::Info,
+            status_message: String::new(),
+        };
+        // notification.send_signal_to_dart();
+        let timer = Instant::now();
+        let mut total_steps = 1;
+
         let cached_metadata = self.app_cache_dir.join(Path::new(Self::INFO_FILE));
         let text = if cached_metadata.exists() {
             check_err(
@@ -153,6 +168,10 @@ impl Handler<SpotlightRefreshMsg> for SpotlightActor {
                     .with_context(|| "Failed to read cached Windows Spotlight metadata"),
             )?
         } else {
+            notification.body = "Fetching data from Windows Spotlight".to_string();
+            notification.status_message = condense_duration(timer.elapsed());
+            // notification.send_signal_to_dart();
+            total_steps += 1;
             let url = "https://fd.api.iris.microsoft.com/v4/api/selection?&placement=88000820&bcnt=4&country=us&locale=en-us&fmt=json";
             let response = check_err(
                 reqwest::get(url)
@@ -175,6 +194,7 @@ impl Handler<SpotlightRefreshMsg> for SpotlightActor {
         )?
         .batch_response
         .items;
+        let total_images = items.len();
         let mut image_list = SpotlightImageList { images: vec![] };
         let mut new_item_ids = vec![];
         for item in items {
@@ -187,6 +207,7 @@ impl Handler<SpotlightRefreshMsg> for SpotlightActor {
             ));
             image_list.images.push(content.into());
         }
+
         for (i, (id, url)) in new_item_ids.iter().enumerate() {
             let file_name = self.app_cache_dir.join(id);
             if !file_name.exists() {
@@ -212,6 +233,10 @@ impl Handler<SpotlightRefreshMsg> for SpotlightActor {
             image_list.images[i].url = file_name.to_string_lossy().to_string();
             // The send method is generated from a marked Protobuf message.
             image_list.send_signal_to_dart();
+            notification.body = format!("Processed {id}");
+            notification.percent =
+                Some(((i + total_steps) as f32) / ((total_images + total_steps) as f32));
+            // notification.send_signal_to_dart();
         }
 
         let new_ids = new_item_ids.iter().map(|i| i.0.clone()).collect::<Vec<_>>();
@@ -251,6 +276,11 @@ impl Handler<SpotlightRefreshMsg> for SpotlightActor {
                 )?;
             }
         }
+        let elapsed = timer.elapsed();
+        notification.percent = Some(100.0);
+        notification.body = "Cache updated".to_string();
+        notification.status_message = condense_duration(elapsed);
+        notification.send_signal_to_dart();
         Ok(())
     }
 }

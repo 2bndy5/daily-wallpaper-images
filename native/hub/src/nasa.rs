@@ -9,12 +9,13 @@ use std::{
     fs,
     io::Write,
     path::{Path, PathBuf},
+    time::Instant,
 };
 
 use crate::signals::NasaImageList;
 use crate::{
-    common::{check_err, DATE_FILE_FMT},
-    signals::{DailyImage, NasaRefresh},
+    common::{check_err, condense_duration, DATE_FILE_FMT},
+    signals::{DailyImage, NasaRefresh, NotificationAlert, NotificationSeverity},
 };
 use anyhow::{anyhow, Context, Result};
 use chrono::{Local, NaiveDate};
@@ -54,7 +55,7 @@ impl NasaActor {
         let receiver = NasaRefresh::get_dart_signal_receiver();
         // Continuously listen for signals.
         while let Some(_dart_signal) = receiver.recv().await {
-            debug_print!("refreshing image list from Nasa");
+            debug_print!("refreshing image list from NASA");
             // Send a message to the actor.
             let _ = nasa_addr.send(NasaRefreshMsg).await;
         }
@@ -87,7 +88,7 @@ pub struct NasaImgUrl {
 
 fn parse_date(date: &str) -> Result<NaiveDate> {
     NaiveDate::parse_from_str(date, "%d %b %Y")
-        .with_context(|| "Failed to parse Nasa picture's date.")
+        .with_context(|| "Failed to parse NASA picture's date.")
 }
 
 #[async_trait]
@@ -95,34 +96,50 @@ impl Handler<NasaRefreshMsg> for NasaActor {
     type Result = Result<()>;
     // Handles messages received by the actor.
     async fn handle(&mut self, _msg: NasaRefreshMsg, _context: &MsgContext<Self>) -> Self::Result {
-        debug_print!("Getting Nasa images");
+        let debug_title = "Getting NASA images";
+        debug_print!("{debug_title}");
+        let mut notification = NotificationAlert {
+            title: debug_title.to_string(),
+            body: "checking cache".to_string(),
+            percent: Some(0.0),
+            severity: NotificationSeverity::Info,
+            status_message: String::new(),
+        };
+        // notification.send_signal_to_dart();
+        let timer = Instant::now();
+        let mut total_steps = 1;
+
         let now = Local::now().date_naive();
         let today = format!("{}.xml", now.format(DATE_FILE_FMT));
         let cached_metadata = self.app_cache_dir.join(Path::new(&today));
         let text = if cached_metadata.exists() {
             fs::read_to_string(&cached_metadata)
-                .with_context(|| "Failed to read cached Nasa metadata")?
+                .with_context(|| "Failed to read cached NASA metadata")?
         } else {
+            notification.body = "Fetching data from NASA".to_string();
+            notification.status_message = condense_duration(timer.elapsed());
+            // notification.send_signal_to_dart();
+            total_steps += 1;
             let response = check_err(
                 reqwest::get("https://www.nasa.gov/rss/dyn/lg_image_of_the_day.rss")
                     .await
-                    .with_context(|| "Failed to get list of Nasa images"),
+                    .with_context(|| "Failed to get list of NASA images"),
             )?;
             let text = check_err(
                 response
                     .text()
                     .await
-                    .with_context(|| "Failed to get body as text from Nasa images' response"),
+                    .with_context(|| "Failed to get body as text from NASA images' response"),
             )?;
             check_err(
                 fs::write(&cached_metadata, &text)
-                    .with_context(|| "Failed to write Nasa metadata to cache"),
+                    .with_context(|| "Failed to write NASA metadata to cache"),
             )?;
             text
         };
         let images = check_err(
             quick_xml::de::from_str::<NasaFeed>(&text)
-                .with_context(|| "Failed to deserialize Nasa images' response payload."),
+                .with_context(|| "Failed to deserialize NASA images' response payload."),
         )?
         .channel
         .item;
@@ -138,7 +155,9 @@ impl Handler<NasaRefreshMsg> for NasaActor {
                 })
                 .collect(),
         };
+        image_list.send_signal_to_dart();
         let mut last_day = None;
+        let total_images = images.len();
         for (i, item) in images.into_iter().enumerate() {
             last_day = Some(parse_date(&item.pub_date[5..16])?);
             let date = last_day.unwrap().format(DATE_FILE_FMT);
@@ -146,14 +165,14 @@ impl Handler<NasaRefreshMsg> for NasaActor {
                 "{date}.{}",
                 Path::new(Url::parse(&item.enclosure.url)?.path())
                     .extension()
-                    .ok_or(anyhow!("Failed to find image MIME type from Nasa URL."))?
+                    .ok_or(anyhow!("Failed to find image MIME type from NASA URL."))?
                     .to_string_lossy()
             ));
             if !file_name.exists() {
                 let response = check_err(
                     reqwest::get(&item.enclosure.url)
                         .await
-                        .with_context(|| "Failed to download image from Nasa"),
+                        .with_context(|| "Failed to download image from NASA"),
                 )?;
                 let item_bin = check_err(
                     response
@@ -163,16 +182,19 @@ impl Handler<NasaRefreshMsg> for NasaActor {
                 )?;
                 let mut file = check_err(
                     fs::File::create(&file_name)
-                        .with_context(|| "Failed to create a cache file for Nasa image"),
+                        .with_context(|| "Failed to create a cache file for NASA image"),
                 )?;
                 check_err(
                     file.write_all(&item_bin)
-                        .with_context(|| "Failed to write Nasa image data to cache file"),
+                        .with_context(|| "Failed to write NASA image data to cache file"),
                 )?;
             }
             image_list.images[i].url = file_name.to_string_lossy().to_string();
-            // The send method is generated from a marked Protobuf message.
             image_list.send_signal_to_dart();
+            notification.body = format!("Processed {date}");
+            notification.percent =
+                Some(((i + total_steps) as f32) / ((total_images + total_steps) as f32));
+            // notification.send_signal_to_dart();
         }
 
         // dispose outdated cached images
@@ -191,7 +213,7 @@ impl Handler<NasaRefreshMsg> for NasaActor {
                         entry
                             .path()
                             .file_stem()
-                            .ok_or(anyhow!("Failed to get filename for cached Nasa image")),
+                            .ok_or(anyhow!("Failed to get filename for cached NASA image")),
                     )?
                     .to_string_lossy(),
                     DATE_FILE_FMT,
@@ -210,11 +232,16 @@ impl Handler<NasaRefreshMsg> for NasaActor {
                     debug_print!("Deleting outdated cache file {:?}", entry.path());
                     check_err(
                         fs::remove_file(entry.path())
-                            .with_context(|| "Failed to delete outdated Nasa cache file"),
+                            .with_context(|| "Failed to delete outdated NASA cache file"),
                     )?;
                 }
             }
         }
+        let elapsed = timer.elapsed();
+        notification.percent = Some(100.0);
+        notification.body = "Cache updated".to_string();
+        notification.status_message = condense_duration(elapsed);
+        notification.send_signal_to_dart();
         Ok(())
     }
 }
@@ -228,7 +255,7 @@ pub async fn create_actors() -> Result<()> {
     let cache_dir = dirs::cache_dir().ok_or(anyhow!(
         "Failed to detect system cache folder; Is this running on a desktop?"
     ))?;
-    let app_cache_dir = cache_dir.join("Daily-Images").join("Nasa");
+    let app_cache_dir = cache_dir.join("Daily-Images").join("NASA");
     if !app_cache_dir.exists() {
         fs::create_dir_all(&app_cache_dir)?;
     }
@@ -253,7 +280,7 @@ mod tests {
             .read_to_string(&mut text)
             .unwrap();
         let items = quick_xml::de::from_str::<NasaFeed>(&text)
-            .with_context(|| "Failed to deserialize Nasa images' response payload.")
+            .with_context(|| "Failed to deserialize NASA images' response payload.")
             .unwrap()
             .channel
             .item;

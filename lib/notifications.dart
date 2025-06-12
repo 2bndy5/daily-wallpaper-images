@@ -12,52 +12,55 @@ class NotificationBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     var finished = alert.percent != null && alert.percent! >= 100.0;
-    String? elapsedDescription;
     final fontColor = switch (alert.severity) {
       NotificationSeverity.warning => Colors.black,
       _ => Colors.white,
     };
-    return ListTile(
-      title: Text(
-        alert.title,
-        style: Theme.of(context)
-            .textTheme
-            .headlineSmall!
-            .copyWith(color: fontColor),
+    final tileColor = switch (alert.severity) {
+      NotificationSeverity.debug => Colors.purple,
+      NotificationSeverity.info => Colors.blue,
+      NotificationSeverity.warning => Colors.orange,
+      NotificationSeverity.error => Colors.red,
+    };
+
+    final textTheme = Theme.of(context).textTheme;
+    return Padding(
+      padding: const EdgeInsets.all(8.0),
+      child: ListTile(
+        title: Text(
+          alert.title,
+          style: textTheme.labelLarge?.copyWith(color: fontColor),
+        ),
+        subtitle: Text(
+          alert.body,
+          style: textTheme.labelMedium?.copyWith(color: fontColor),
+        ),
+        splashColor: tileColor,
+        onTap: () {},
+        contentPadding: EdgeInsets.fromLTRB(16.0, 0, 16.0, 0),
+        tileColor: tileColor.withAlpha(135),
+        textColor: fontColor,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadiusGeometry.circular(32.0),
+        ),
+        // trailing: finished
+        //     ? IconButton(onPressed: () {}, icon: Icon(Icons.close))
+        //     : null,
+        leading: finished
+            ? Text(alert.statusMessage)
+            : CircularProgressIndicator(value: alert.percent),
       ),
-      subtitle: Text(
-        alert.body,
-        style:
-            Theme.of(context).textTheme.labelMedium!.copyWith(color: fontColor),
-      ),
-      splashColor: switch (alert.severity) {
-        NotificationSeverity.debug => Colors.purple,
-        NotificationSeverity.info => Colors.blue,
-        NotificationSeverity.warning => Colors.orange,
-        NotificationSeverity.error => Colors.red,
-      },
-      trailing: Row(
-        children: [
-          if (finished) IconButton(onPressed: () {}, icon: Icon(Icons.close)),
-        ],
-      ),
-      leading: finished
-          ? Text(elapsedDescription!)
-          : (alert.percent != null
-              ? CircularProgressIndicator(value: alert.percent!)
-              : null),
     );
   }
 }
 
 class NotificationCenter {
   List<NotificationAlert> notifications = [];
-  NotificationCenter();
+
   void update(NotificationAlert note) {
     var done = false;
     for (var i = 0; i < notifications.length; ++i) {
-      if (notifications[i].title == note.title &&
-          notifications[i].severity == note.severity) {
+      if (notifications[i].title == note.title) {
         notifications[i] = note;
         done = true;
         break;

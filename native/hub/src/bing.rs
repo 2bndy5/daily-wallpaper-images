@@ -7,10 +7,10 @@
 
 use std::fmt::Debug;
 use std::path::Path;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 use std::{fs, io::Write, path::PathBuf};
 
-use crate::common::{check_err, DATE_FILE_FMT};
+use crate::common::{check_err, condense_duration, DATE_FILE_FMT};
 use crate::signals::{
     BingImageList, BingRefresh, DailyImage, NotificationAlert, NotificationSeverity,
 };
@@ -68,16 +68,6 @@ impl BingActor {
 fn parse_date(date: &str) -> Result<NaiveDate> {
     NaiveDate::parse_from_str(date, "%Y%m%d")
         .with_context(|| "Failed to parse Bing picture's date.")
-}
-
-fn condense_duration(duration: Duration) -> String {
-    let seconds = duration.as_secs();
-    if seconds > 0 {
-        format!("{seconds} sec")
-    } else {
-        let millis = duration.as_millis();
-        format!("{millis} ms")
-    }
 }
 
 #[async_trait]
