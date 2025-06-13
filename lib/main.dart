@@ -46,7 +46,7 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   int _selectedSource = 0;
-  var notifications = NotificationCenter();
+  var notifications = <String, NotificationAlert>{};
   final services = [
     "Bing Image of the Day",
     "NASA Image of the Day",
@@ -158,49 +158,56 @@ class _MyHomePageState extends State<MyHomePage> {
             )
           : null,
       endDrawer: Drawer(
-          child: Column(
-        children: <Widget>[
-          DrawerHeader(
-            decoration: BoxDecoration(
-              color: colorScheme.primaryContainer,
-            ),
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    IconButton(
-                      onPressed: () {
-                        Navigator.pop(context);
-                      },
-                      icon: Icon(Icons.close),
-                    ),
-                  ],
-                ),
-                Expanded(
-                  child: Align(
-                    alignment: AlignmentDirectional.bottomStart,
-                    child: Text("Notifications"),
+        child: Column(
+          children: <Widget>[
+            DrawerHeader(
+              decoration: BoxDecoration(
+                color: colorScheme.primaryContainer,
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      IconButton(
+                        onPressed: () {
+                          Navigator.pop(context);
+                        },
+                        icon: Icon(Icons.close),
+                      ),
+                    ],
                   ),
-                ),
-              ],
+                  Expanded(
+                    child: Align(
+                      alignment: AlignmentDirectional.bottomStart,
+                      child: Text("Notifications for Nerds"),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-          Expanded(
-            child: StreamBuilder(
-                stream: NotificationAlert.rustSignalStream,
+            Expanded(
+              child: StreamBuilder(
+                stream: NotificationResults.rustSignalStream,
                 builder: (context, asyncSnapshot) {
-                  if (asyncSnapshot.hasData) {
-                    final note = asyncSnapshot.data!.message;
-                    notifications.update(note);
-                  }
+                  notifications = asyncSnapshot.hasData
+                      ? asyncSnapshot.data!.message.notifications
+                      : <String, NotificationAlert>{};
 
                   return ListView(
-                    children: notifications.getNotifications(),
+                    children: List.from(
+                      notifications.values.map(
+                        (el) {
+                          return NotificationBubble(el);
+                        },
+                      ),
+                    ),
                   );
-                }),
-          )
-        ],
-      )),
+                },
+              ),
+            )
+          ],
+        ),
+      ),
     );
   }
 }

@@ -11,6 +11,7 @@ use std::time::Instant;
 use std::{fs, io::Write, path::PathBuf};
 
 use crate::common::{check_err, condense_duration, DATE_FILE_FMT};
+use crate::notification_center::{NotificationActor, NotificationUpdate};
 use crate::signals::{
     BingImageList, BingRefresh, DailyImage, NotificationAlert, NotificationSeverity,
 };
@@ -35,11 +36,12 @@ pub struct BingImages {
 }
 
 // The type for instigating the actor.
-pub struct BingRefreshMsg;
+struct BingRefreshMsg;
 
 // The actor that holds the counter state and handles messages.
 pub struct BingActor {
     app_cache_dir: PathBuf,
+    notification_center: Address<NotificationActor>,
 }
 
 // Implementing the `Actor` trait for `CountingActor`.
@@ -47,9 +49,16 @@ pub struct BingActor {
 impl Actor for BingActor {}
 
 impl BingActor {
-    pub fn new(bing_addr: Address<Self>, app_cache_dir: PathBuf) -> Self {
+    pub fn new(
+        bing_addr: Address<Self>,
+        app_cache_dir: PathBuf,
+        notification_center: Address<NotificationActor>,
+    ) -> Self {
         spawn(Self::listen_to_refresh_trigger(bing_addr));
-        BingActor { app_cache_dir }
+        BingActor {
+            app_cache_dir,
+            notification_center,
+        }
     }
 
     async fn listen_to_refresh_trigger(mut bing_addr: Address<Self>) {
@@ -79,7 +88,7 @@ impl Handler<BingRefreshMsg> for BingActor {
         debug_print!("{debug_title}");
         let mut notification = NotificationAlert {
             title: debug_title.to_string(),
-            body: "checking cache".to_string(),
+            body: "Checking cache".to_string(),
             percent: Some(0.0),
             severity: NotificationSeverity::Info,
             status_message: String::new(),
@@ -99,7 +108,12 @@ impl Handler<BingRefreshMsg> for BingActor {
         } else {
             notification.body = "Fetching data from Bing".to_string();
             notification.status_message = condense_duration(timer.elapsed());
-            // notification.send_signal_to_dart();
+            check_err(check_err(
+                self.notification_center
+                    .send(NotificationUpdate(notification.clone()))
+                    .await
+                    .map_err(|e| anyhow!("Failed to send notification update: {e:?}")),
+            )?)?;
             total_steps += 1;
             let response = check_err(
                 reqwest::get("https://www.bing.com/HPImageArchive.aspx?format=js&idx=0&n=14")
@@ -169,7 +183,12 @@ impl Handler<BingRefreshMsg> for BingActor {
             notification.body = format!("Processed {date}");
             notification.percent =
                 Some(((i + total_steps) as f32) / ((total_images + total_steps) as f32));
-            // notification.send_signal_to_dart();
+            check_err(check_err(
+                self.notification_center
+                    .send(NotificationUpdate(notification.clone()))
+                    .await
+                    .map_err(|e| anyhow!("Failed to send notification update: {e:?}")),
+            )?)?;
         }
 
         // dispose outdated cached images
@@ -216,13 +235,19 @@ impl Handler<BingRefreshMsg> for BingActor {
         notification.percent = Some(100.0);
         notification.body = "Cache updated".to_string();
         notification.status_message = condense_duration(elapsed);
-        notification.send_signal_to_dart();
+        check_err(check_err(
+            self.notification_center
+                .send(NotificationUpdate(notification))
+                .await
+                .map_err(|e| anyhow!("Failed to send notification update: {e:?}")),
+        )?)?;
+
         Ok(())
     }
 }
 
 // Creates and spawns the actors in the async system.
-pub async fn create_actors() -> Result<()> {
+pub async fn create_actors(notification_center: Address<NotificationActor>) -> Result<()> {
     // Create actor contexts.
     let bing_context = MsgContext::new();
     let bing_addr = bing_context.address();
@@ -236,7 +261,7 @@ pub async fn create_actors() -> Result<()> {
     }
 
     // Spawn actors.
-    let actor = BingActor::new(bing_addr, app_cache_dir);
+    let actor = BingActor::new(bing_addr, app_cache_dir, notification_center);
     spawn(bing_context.run(actor));
     Ok(())
 }

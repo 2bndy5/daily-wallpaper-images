@@ -53,25 +53,3 @@ class NotificationBubble extends StatelessWidget {
     );
   }
 }
-
-class NotificationCenter {
-  List<NotificationAlert> notifications = [];
-
-  void update(NotificationAlert note) {
-    var done = false;
-    for (var i = 0; i < notifications.length; ++i) {
-      if (notifications[i].title == note.title) {
-        notifications[i] = note;
-        done = true;
-        break;
-      }
-    }
-    if (!done) {
-      notifications.add(note);
-    }
-  }
-
-  List<NotificationBubble> getNotifications() {
-    return List.from(notifications.map((note) => NotificationBubble(note)));
-  }
-}

@@ -12,10 +12,13 @@ use std::{
     time::Instant,
 };
 
-use crate::signals::NasaImageList;
 use crate::{
     common::{check_err, condense_duration, DATE_FILE_FMT},
     signals::{DailyImage, NasaRefresh, NotificationAlert, NotificationSeverity},
+};
+use crate::{
+    notification_center::{NotificationActor, NotificationUpdate},
+    signals::NasaImageList,
 };
 use anyhow::{anyhow, Context, Result};
 use chrono::{Local, NaiveDate};
@@ -26,26 +29,26 @@ use serde::Deserialize;
 use tokio::spawn;
 
 // The type for instigating the actor.
-pub struct NasaRefreshMsg;
+struct NasaRefreshMsg;
 
 // The actor that holds the counter state and handles messages.
 pub struct NasaActor {
-    // The counter number.
-    #[allow(dead_code)]
-    images: Vec<String>,
     app_cache_dir: PathBuf,
+    notification_center: Address<NotificationActor>,
 }
 
-// Implementing the `Actor` trait for `CountingActor`.
-// This defines `CountingActor` as an actor in the async system.
 impl Actor for NasaActor {}
 
 impl NasaActor {
-    pub fn new(nasa_addr: Address<Self>, app_cache_dir: PathBuf) -> Self {
+    pub fn new(
+        nasa_addr: Address<Self>,
+        app_cache_dir: PathBuf,
+        notification_center: Address<NotificationActor>,
+    ) -> Self {
         spawn(Self::listen_to_refresh_trigger(nasa_addr));
         NasaActor {
-            images: vec![],
             app_cache_dir,
+            notification_center,
         }
     }
 
@@ -100,12 +103,17 @@ impl Handler<NasaRefreshMsg> for NasaActor {
         debug_print!("{debug_title}");
         let mut notification = NotificationAlert {
             title: debug_title.to_string(),
-            body: "checking cache".to_string(),
+            body: "Checking cache".to_string(),
             percent: Some(0.0),
             severity: NotificationSeverity::Info,
             status_message: String::new(),
         };
-        // notification.send_signal_to_dart();
+        check_err(check_err(
+            self.notification_center
+                .send(NotificationUpdate(notification.clone()))
+                .await
+                .map_err(|e| anyhow!("Failed to send notification update: {e:?}")),
+        )?)?;
         let timer = Instant::now();
         let mut total_steps = 1;
 
@@ -118,7 +126,12 @@ impl Handler<NasaRefreshMsg> for NasaActor {
         } else {
             notification.body = "Fetching data from NASA".to_string();
             notification.status_message = condense_duration(timer.elapsed());
-            // notification.send_signal_to_dart();
+            check_err(check_err(
+                self.notification_center
+                    .send(NotificationUpdate(notification.clone()))
+                    .await
+                    .map_err(|e| anyhow!("Failed to send notification update: {e:?}")),
+            )?)?;
             total_steps += 1;
             let response = check_err(
                 reqwest::get("https://www.nasa.gov/rss/dyn/lg_image_of_the_day.rss")
@@ -194,7 +207,12 @@ impl Handler<NasaRefreshMsg> for NasaActor {
             notification.body = format!("Processed {date}");
             notification.percent =
                 Some(((i + total_steps) as f32) / ((total_images + total_steps) as f32));
-            // notification.send_signal_to_dart();
+            check_err(check_err(
+                self.notification_center
+                    .send(NotificationUpdate(notification.clone()))
+                    .await
+                    .map_err(|e| anyhow!("Failed to send notification update: {e:?}")),
+            )?)?;
         }
 
         // dispose outdated cached images
@@ -241,13 +259,18 @@ impl Handler<NasaRefreshMsg> for NasaActor {
         notification.percent = Some(100.0);
         notification.body = "Cache updated".to_string();
         notification.status_message = condense_duration(elapsed);
-        notification.send_signal_to_dart();
+        check_err(check_err(
+            self.notification_center
+                .send(NotificationUpdate(notification))
+                .await
+                .map_err(|e| anyhow!("Failed to send notification update: {e:?}")),
+        )?)?;
         Ok(())
     }
 }
 
 // Creates and spawns the actors in the async system.
-pub async fn create_actors() -> Result<()> {
+pub async fn create_actors(notification_center: Address<NotificationActor>) -> Result<()> {
     // Create actor contexts.
     let nasa_context = MsgContext::new();
     let nasa_addr = nasa_context.address();
@@ -261,7 +284,7 @@ pub async fn create_actors() -> Result<()> {
     }
 
     // Spawn actors.
-    let actor = NasaActor::new(nasa_addr, app_cache_dir);
+    let actor = NasaActor::new(nasa_addr, app_cache_dir, notification_center);
     spawn(nasa_context.run(actor));
     Ok(())
 }

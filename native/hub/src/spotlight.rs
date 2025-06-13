@@ -10,6 +10,7 @@ use std::path::Path;
 use std::{fs, io::Write, path::PathBuf, time::Instant};
 
 use crate::common::{check_err, condense_duration};
+use crate::notification_center::{NotificationActor, NotificationUpdate};
 use crate::signals::{
     DailyImage, NotificationAlert, NotificationSeverity, SpotlightImageList, SpotlightRefresh,
     SpotlightReset,
@@ -78,6 +79,7 @@ pub struct SpotlightResetMsg;
 // The actor that holds the counter state and handles messages.
 pub struct SpotlightActor {
     app_cache_dir: PathBuf,
+    notification_center: Address<NotificationActor>,
 }
 
 // Implementing the `Actor` trait for `CountingActor`.
@@ -87,10 +89,17 @@ impl Actor for SpotlightActor {}
 impl SpotlightActor {
     const INFO_FILE: &str = "info.json";
 
-    pub fn new(spotlight_addr: Address<Self>, app_cache_dir: PathBuf) -> Self {
+    pub fn new(
+        spotlight_addr: Address<Self>,
+        app_cache_dir: PathBuf,
+        notification_center: Address<NotificationActor>,
+    ) -> Self {
         spawn(Self::listen_to_refresh_trigger(spotlight_addr.clone()));
         spawn(Self::listen_to_reset_trigger(spotlight_addr));
-        SpotlightActor { app_cache_dir }
+        SpotlightActor {
+            app_cache_dir,
+            notification_center,
+        }
     }
 
     async fn listen_to_refresh_trigger(mut spotlight_addr: Address<Self>) {
@@ -157,7 +166,12 @@ impl Handler<SpotlightRefreshMsg> for SpotlightActor {
             severity: NotificationSeverity::Info,
             status_message: String::new(),
         };
-        // notification.send_signal_to_dart();
+        check_err(check_err(
+            self.notification_center
+                .send(NotificationUpdate(notification.clone()))
+                .await
+                .map_err(|e| anyhow!("Failed to send notification update: {e:?}")),
+        )?)?;
         let timer = Instant::now();
         let mut total_steps = 1;
 
@@ -170,7 +184,12 @@ impl Handler<SpotlightRefreshMsg> for SpotlightActor {
         } else {
             notification.body = "Fetching data from Windows Spotlight".to_string();
             notification.status_message = condense_duration(timer.elapsed());
-            // notification.send_signal_to_dart();
+            check_err(check_err(
+                self.notification_center
+                    .send(NotificationUpdate(notification.clone()))
+                    .await
+                    .map_err(|e| anyhow!("Failed to send notification update: {e:?}")),
+            )?)?;
             total_steps += 1;
             let url = "https://fd.api.iris.microsoft.com/v4/api/selection?&placement=88000820&bcnt=4&country=us&locale=en-us&fmt=json";
             let response = check_err(
@@ -236,7 +255,12 @@ impl Handler<SpotlightRefreshMsg> for SpotlightActor {
             notification.body = format!("Processed {id}");
             notification.percent =
                 Some(((i + total_steps) as f32) / ((total_images + total_steps) as f32));
-            // notification.send_signal_to_dart();
+            check_err(check_err(
+                self.notification_center
+                    .send(NotificationUpdate(notification.clone()))
+                    .await
+                    .map_err(|e| anyhow!("Failed to send notification update: {e:?}")),
+            )?)?;
         }
 
         let new_ids = new_item_ids.iter().map(|i| i.0.clone()).collect::<Vec<_>>();
@@ -280,13 +304,18 @@ impl Handler<SpotlightRefreshMsg> for SpotlightActor {
         notification.percent = Some(100.0);
         notification.body = "Cache updated".to_string();
         notification.status_message = condense_duration(elapsed);
-        notification.send_signal_to_dart();
+        check_err(check_err(
+            self.notification_center
+                .send(NotificationUpdate(notification))
+                .await
+                .map_err(|e| anyhow!("Failed to send notification update: {e:?}")),
+        )?)?;
         Ok(())
     }
 }
 
 // Creates and spawns the actors in the async system.
-pub async fn create_actors() -> Result<()> {
+pub async fn create_actors(notification_center: Address<NotificationActor>) -> Result<()> {
     // Create actor contexts.
     let spotlight_context = MsgContext::new();
     let spotlight_addr = spotlight_context.address();
@@ -300,7 +329,7 @@ pub async fn create_actors() -> Result<()> {
     }
 
     // Spawn actors.
-    let actor = SpotlightActor::new(spotlight_addr, app_cache_dir);
+    let actor = SpotlightActor::new(spotlight_addr, app_cache_dir, notification_center);
     spawn(spotlight_context.run(actor));
     Ok(())
 }
