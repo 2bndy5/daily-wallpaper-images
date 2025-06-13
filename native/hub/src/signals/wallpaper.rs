@@ -1,3 +1,5 @@
+#![cfg(not(target_os = "android"))]
+
 use rinf::{DartSignal, SignalPiece};
 use serde::Deserialize;
 

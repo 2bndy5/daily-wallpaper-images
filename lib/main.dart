@@ -189,9 +189,9 @@ class _MyHomePageState extends State<MyHomePage> {
               child: StreamBuilder(
                 stream: NotificationResults.rustSignalStream,
                 builder: (context, asyncSnapshot) {
-                  notifications = asyncSnapshot.hasData
-                      ? asyncSnapshot.data!.message.notifications
-                      : <String, NotificationAlert>{};
+                  if (asyncSnapshot.hasData) {
+                    notifications = asyncSnapshot.data!.message.notifications;
+                  }
 
                   return ListView(
                     children: List.from(

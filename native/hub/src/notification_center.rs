@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 
-use crate::{bing, nasa, set_wallpaper, signals::notifications::*, spotlight};
+#[cfg(not(target_os = "android"))]
+use crate::set_wallpaper;
+use crate::{bing, nasa, signals::notifications::*, spotlight};
 use anyhow::Result;
 use chrono::{SecondsFormat, Utc};
 use messages::prelude::{async_trait, Actor, Address, Context as MsgContext, Handler};

@@ -17,7 +17,9 @@ pub use nasa::*;
 pub(crate) mod spotlight;
 pub use spotlight::*;
 
+#[cfg(not(target_os = "android"))]
 pub(crate) mod wallpaper;
+#[cfg(not(target_os = "android"))]
 pub use wallpaper::*;
 
 pub(crate) mod notifications;

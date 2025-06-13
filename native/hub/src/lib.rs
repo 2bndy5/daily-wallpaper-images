@@ -5,6 +5,7 @@ pub(crate) mod bing;
 pub(crate) mod common;
 pub(crate) mod nasa;
 pub(crate) mod notification_center;
+#[cfg(not(target_os = "android"))]
 pub(crate) mod set_wallpaper;
 pub(crate) mod signals;
 pub(crate) mod spotlight;
