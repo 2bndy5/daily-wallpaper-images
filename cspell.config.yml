@@ -12,6 +12,7 @@ words:
   - pubspec
   - reqwest
   - rinf
+  - rustc
   - rustls
   - rustup
   - serde

@@ -1,12 +1,14 @@
 //! This `hub` crate is the
 //! entry point of the Rust logic.
 
-mod bing;
-mod common;
-mod nasa;
-mod set_wallpaper;
-mod signals;
-mod spotlight;
+pub(crate) mod bing;
+pub(crate) mod common;
+pub(crate) mod nasa;
+pub(crate) mod notification_center;
+#[cfg(not(target_os = "android"))]
+pub(crate) mod set_wallpaper;
+pub(crate) mod signals;
+pub(crate) mod spotlight;
 use rinf::{dart_shutdown, write_interface};
 
 // Uncomment below to target the web.
@@ -20,13 +22,7 @@ async fn main() {
     // Always use non-blocking async functions like `tokio::fs::File::open`.
     // If you must use blocking code, use `tokio::task::spawn_blocking`
     // or the equivalent provided by your async library.
-    tokio::spawn(bing::create_actors());
-    tokio::spawn(nasa::create_actors());
-    tokio::spawn(spotlight::create_actors());
-    #[cfg(not(target_os = "android"))]
-    {
-        tokio::spawn(set_wallpaper::create_actors());
-    }
+    tokio::spawn(notification_center::create_actors());
 
     // Keep the main function running until Dart shutdown.
     dart_shutdown().await;
