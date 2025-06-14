@@ -51,7 +51,7 @@ impl WallpaperActor {
                 Err(e) => NotificationAlert {
                     title: "Failed to set the desktop wallpaper".to_string(),
                     body: format!("{e:?}"),
-                    percent: Some(1.0),
+                    percent: 1.0,
                     severity: NotificationSeverity::Error,
                     status_message: String::new(),
                 },
@@ -59,14 +59,14 @@ impl WallpaperActor {
                     Ok(_) => NotificationAlert {
                         title: "Set the desktop wallpaper".to_string(),
                         body: "Success".to_string(),
-                        percent: Some(1.0),
+                        percent: 1.0,
                         severity: NotificationSeverity::Info,
                         status_message: String::new(),
                     },
                     Err(e) => NotificationAlert {
                         title: "Failed to set the desktop wallpaper".to_string(),
                         body: format!("{e:?}"),
-                        percent: Some(1.0),
+                        percent: 1.0,
                         severity: NotificationSeverity::Error,
                         status_message: String::new(),
                     },

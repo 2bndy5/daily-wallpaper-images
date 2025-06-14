@@ -84,12 +84,12 @@ impl Handler<BingRefreshMsg> for BingActor {
     type Result = Result<()>;
     // Handles messages received by the actor.
     async fn handle(&mut self, _msg: BingRefreshMsg, _context: &MsgContext<Self>) -> Self::Result {
-        let debug_title = "Getting Bing images";
+        let debug_title = "Bing images";
         debug_print!("{debug_title}");
         let mut notification = NotificationAlert {
             title: debug_title.to_string(),
             body: "Checking cache".to_string(),
-            percent: Some(0.0),
+            percent: 0.0,
             severity: NotificationSeverity::Info,
             status_message: String::new(),
         };
@@ -182,7 +182,7 @@ impl Handler<BingRefreshMsg> for BingActor {
             image_list.send_signal_to_dart();
             notification.body = format!("Processed {date}");
             notification.percent =
-                Some(((i + total_steps) as f32) / ((total_images + total_steps) as f32));
+                ((i + total_steps) as f32) / ((total_images + total_steps) as f32);
             check_err(check_err(
                 self.notification_center
                     .send(NotificationUpdate(notification.clone()))
@@ -232,7 +232,7 @@ impl Handler<BingRefreshMsg> for BingActor {
             }
         }
         let elapsed = timer.elapsed();
-        notification.percent = Some(100.0);
+        notification.percent = 100.0;
         notification.body = "Cache updated".to_string();
         notification.status_message = condense_duration(elapsed);
         check_err(check_err(

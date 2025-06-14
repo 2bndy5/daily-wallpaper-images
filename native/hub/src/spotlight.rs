@@ -157,12 +157,12 @@ impl Handler<SpotlightRefreshMsg> for SpotlightActor {
         _msg: SpotlightRefreshMsg,
         _context: &MsgContext<Self>,
     ) -> Self::Result {
-        let debug_title = "Getting Windows Spotlight images";
+        let debug_title = "Windows Spotlight images";
         debug_print!("{debug_title}");
         let mut notification = NotificationAlert {
             title: debug_title.to_string(),
             body: "checking cache".to_string(),
-            percent: Some(0.0),
+            percent: 0.0,
             severity: NotificationSeverity::Info,
             status_message: String::new(),
         };
@@ -254,7 +254,7 @@ impl Handler<SpotlightRefreshMsg> for SpotlightActor {
             image_list.send_signal_to_dart();
             notification.body = format!("Processed {id}");
             notification.percent =
-                Some(((i + total_steps) as f32) / ((total_images + total_steps) as f32));
+                ((i + total_steps) as f32) / ((total_images + total_steps) as f32);
             check_err(check_err(
                 self.notification_center
                     .send(NotificationUpdate(notification.clone()))
@@ -301,7 +301,7 @@ impl Handler<SpotlightRefreshMsg> for SpotlightActor {
             }
         }
         let elapsed = timer.elapsed();
-        notification.percent = Some(100.0);
+        notification.percent = 100.0;
         notification.body = "Cache updated".to_string();
         notification.status_message = condense_duration(elapsed);
         check_err(check_err(

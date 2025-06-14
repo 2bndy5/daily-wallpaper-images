@@ -19,7 +19,8 @@ impl Actor for NotificationActor {}
 impl NotificationActor {
     pub fn new(notification_addr: Address<Self>) -> Self {
         spawn(Self::listen_to_refresh(notification_addr.clone()));
-        spawn(Self::listen_to_dismiss(notification_addr));
+        spawn(Self::listen_to_dismiss(notification_addr.clone()));
+        spawn(Self::listen_to_dismiss_all(notification_addr));
         Self {
             notifications: HashMap::new(),
         }
@@ -39,7 +40,17 @@ impl NotificationActor {
         let receiver = NotificationDismiss::get_dart_signal_receiver();
         // Continuously listen for signals.
         while let Some(dart_signal) = receiver.recv().await {
-            debug_print!("refreshing notifications");
+            debug_print!("dismissing notification");
+            // Send a message to the actor.
+            let _ = notification_addr.send(dart_signal.message).await;
+        }
+    }
+
+    async fn listen_to_dismiss_all(mut notification_addr: Address<Self>) {
+        let receiver = NotificationDismissAll::get_dart_signal_receiver();
+        // Continuously listen for signals.
+        while let Some(dart_signal) = receiver.recv().await {
+            debug_print!("dismissing notification");
             // Send a message to the actor.
             let _ = notification_addr.send(dart_signal.message).await;
         }
@@ -49,20 +60,32 @@ impl NotificationActor {
 #[async_trait]
 impl Handler<NotificationUpdate> for NotificationActor {
     type Result = Result<()>;
+
     async fn handle(
         &mut self,
         msg: NotificationUpdate,
         _context: &MsgContext<Self>,
     ) -> Self::Result {
         let mut found = false;
-        for (_, val) in self.notifications.iter_mut() {
+        let mut old_key = None;
+        for (key, val) in self.notifications.iter_mut() {
             if val.title == msg.0.title {
+                if val.percent >= 1.0 {
+                    old_key = Some(key.to_owned());
+                    break;
+                }
                 val.update(msg.0.clone());
                 found = true;
+                debug_print!("Updated notification \"{}\" ({})", val.title, val.percent);
                 break;
             }
         }
+        if let Some(old_key) = old_key {
+            let old = self.notifications.remove(&old_key).unwrap();
+            debug_print!("Removed outdated notification \"{}\"", old.title);
+        }
         if !found {
+            debug_print!("Adding new notification \"{}\"", msg.0.title);
             self.notifications.insert(
                 Utc::now().to_rfc3339_opts(SecondsFormat::Millis, false),
                 msg.0,
@@ -79,7 +102,7 @@ impl Handler<NotificationUpdate> for NotificationActor {
 #[async_trait]
 impl Handler<NotificationRefresh> for NotificationActor {
     type Result = Result<()>;
-    // Handles messages received by the actor.
+
     async fn handle(
         &mut self,
         _msg: NotificationRefresh,
@@ -89,6 +112,7 @@ impl Handler<NotificationRefresh> for NotificationActor {
             notifications: self.notifications.clone(),
         }
         .send_signal_to_dart();
+        debug_print!("Done refreshing notifications");
         Ok(())
     }
 }
@@ -96,13 +120,34 @@ impl Handler<NotificationRefresh> for NotificationActor {
 #[async_trait]
 impl Handler<NotificationDismiss> for NotificationActor {
     type Result = Result<()>;
-    // Handles messages received by the actor.
+
     async fn handle(
         &mut self,
         msg: NotificationDismiss,
         _context: &MsgContext<Self>,
     ) -> Self::Result {
-        self.notifications.remove_entry(&msg.timestamp);
+        if let Some(entry) = self.notifications.remove_entry(&msg.timestamp) {
+            debug_print!("Dismissed \"{}\"", entry.1.title);
+            NotificationResults {
+                notifications: self.notifications.clone(),
+            }
+            .send_signal_to_dart();
+        }
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl Handler<NotificationDismissAll> for NotificationActor {
+    type Result = Result<()>;
+
+    async fn handle(
+        &mut self,
+        _msg: NotificationDismissAll,
+        _context: &MsgContext<Self>,
+    ) -> Self::Result {
+        self.notifications.clear();
+        debug_print!("Dismissed all notifications");
         NotificationResults {
             notifications: self.notifications.clone(),
         }

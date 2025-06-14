@@ -11,6 +11,9 @@ pub struct NotificationDismiss {
     pub timestamp: String,
 }
 
+#[derive(Debug, DartSignal, Deserialize)]
+pub struct NotificationDismissAll;
+
 #[derive(Debug, RustSignal, Serialize)]
 pub struct NotificationResults {
     pub notifications: HashMap<String, NotificationAlert>,
@@ -20,7 +23,7 @@ pub struct NotificationResults {
 pub struct NotificationAlert {
     pub title: String,
     pub body: String,
-    pub percent: Option<f32>,
+    pub percent: f32,
     pub severity: NotificationSeverity,
     pub status_message: String,
 }
