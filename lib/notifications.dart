@@ -1,6 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:daily_wallpaper_images/src/bindings/bindings.dart';
 
+Color _noteColor(NotificationSeverity severity) {
+  return switch (severity) {
+    NotificationSeverity.debug => Colors.purple,
+    NotificationSeverity.info => Colors.green,
+    NotificationSeverity.warning => Colors.yellow,
+    NotificationSeverity.error => Colors.red,
+  };
+}
+
 class NotificationBubble extends StatelessWidget {
   final NotificationAlert alert;
   final Function()? onTap;
@@ -18,14 +27,16 @@ class NotificationBubble extends StatelessWidget {
       NotificationSeverity.warning => Colors.black,
       _ => Colors.white,
     };
-    final tileColor = switch (alert.severity) {
-      NotificationSeverity.debug => Colors.purple,
-      NotificationSeverity.info => Colors.green,
-      NotificationSeverity.warning => Colors.orange,
-      NotificationSeverity.error => Colors.red,
-    };
+    final tileColor = _noteColor(alert.severity);
 
     final textTheme = Theme.of(context).textTheme;
+    final finishIcon = Icon(switch (alert.severity) {
+      NotificationSeverity.debug => Icons.bug_report,
+      NotificationSeverity.info => Icons.check_circle_outline_rounded,
+      NotificationSeverity.warning => Icons.warning,
+      NotificationSeverity.error => Icons.error,
+    });
+
     return Padding(
       padding: const EdgeInsets.all(8.0),
       child: ListTile(
@@ -50,7 +61,7 @@ class NotificationBubble extends StatelessWidget {
         //     : null,
         leading: finished
             ? alert.statusMessage.isEmpty
-                ? Icon(Icons.check)
+                ? finishIcon
                 : Text(alert.statusMessage)
             : CircularProgressIndicator(value: alert.percent),
       ),
@@ -135,6 +146,68 @@ class _NotificationCenterState extends State<NotificationCenter> {
               Expanded(child: child),
             ],
           ),
+        );
+      },
+    );
+  }
+}
+
+class NotificationsMonitor extends StatefulWidget {
+  const NotificationsMonitor({
+    super.key,
+  });
+
+  @override
+  State<NotificationsMonitor> createState() => _NotificationsMonitorState();
+}
+
+class _NotificationsMonitorState extends State<NotificationsMonitor> {
+  var notifications = <String, NotificationAlert>{};
+  ({String key, NotificationAlert alert})? newNote;
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder(
+      stream: NotificationResults.rustSignalStream,
+      builder: (context, asyncSnapshot) {
+        if (asyncSnapshot.hasData) {
+          final data = asyncSnapshot.data!.message.notifications;
+          if (data.isEmpty) {
+            newNote = null;
+          } else {
+            var foundNew = false;
+            for (final entry in data.entries) {
+              if (!notifications.containsKey(entry.key)) {
+                newNote = (
+                  key: entry.key,
+                  alert: entry.value,
+                );
+                foundNew = true;
+                break;
+              }
+            }
+            if (!foundNew &&
+                newNote != null &&
+                data.containsKey(newNote!.key)) {
+              newNote = (key: newNote!.key, alert: data[newNote!.key]!);
+            }
+          }
+          notifications = data;
+        }
+
+        final child = newNote != null && newNote!.alert.percent < 1.0
+            ? CircularProgressIndicator(
+                value: newNote!.alert.percent,
+                color: _noteColor(newNote!.alert.severity),
+                padding: EdgeInsets.all(5),
+              )
+            : Icon(Icons.notifications);
+
+        return IconButton(
+          onPressed: () {
+            Scaffold.of(context).openEndDrawer();
+          },
+          icon: child,
         );
       },
     );

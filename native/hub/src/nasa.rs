@@ -256,7 +256,7 @@ impl Handler<NasaRefreshMsg> for NasaActor {
             }
         }
         let elapsed = timer.elapsed();
-        notification.percent = 100.0;
+        notification.percent = 1.0;
         notification.body = "Cache updated".to_string();
         notification.status_message = condense_duration(elapsed);
         check_err(check_err(
