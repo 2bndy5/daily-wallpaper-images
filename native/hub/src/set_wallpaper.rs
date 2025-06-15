@@ -8,7 +8,8 @@
 
 use crate::{
     common::check_err,
-    signals::{SetWallpaper, WallpaperMode},
+    notification_center::{NotificationActor, NotificationUpdate},
+    signals::{NotificationAlert, NotificationSeverity, SetWallpaper, WallpaperMode},
 };
 use anyhow::{anyhow, Result};
 use messages::prelude::{async_trait, Actor, Address, Context as MsgContext, Handler};
@@ -24,12 +25,21 @@ pub struct WallpaperActor;
 impl Actor for WallpaperActor {}
 
 impl WallpaperActor {
-    pub fn new(setter_addr: Address<Self>) -> Self {
-        spawn(Self::listen_to_set_wallpaper_trigger(setter_addr));
-        WallpaperActor {}
+    pub fn new(
+        setter_addr: Address<Self>,
+        notification_center: Address<NotificationActor>,
+    ) -> Self {
+        spawn(Self::listen_to_set_wallpaper_trigger(
+            setter_addr,
+            notification_center,
+        ));
+        Self {}
     }
 
-    async fn listen_to_set_wallpaper_trigger(mut setter_addr: Address<Self>) {
+    async fn listen_to_set_wallpaper_trigger(
+        mut setter_addr: Address<Self>,
+        mut notification_center: Address<NotificationActor>,
+    ) {
         // Spawn an asynchronous task to listen for
         // button click signals from Dart.
         let receiver = SetWallpaper::get_dart_signal_receiver();
@@ -37,7 +47,39 @@ impl WallpaperActor {
         while let Some(dart_signal) = receiver.recv().await {
             debug_print!("setting image as wallpaper");
             // Send a message to the actor.
-            let _ = setter_addr.send(dart_signal.message).await;
+            let notification = match setter_addr.send(dart_signal.message).await {
+                Err(e) => NotificationAlert {
+                    title: "Failed to set the desktop wallpaper".to_string(),
+                    body: format!("{e:?}"),
+                    percent: 1.0,
+                    severity: NotificationSeverity::Error,
+                    status_message: String::new(),
+                },
+                Ok(result) => match result {
+                    Ok(_) => NotificationAlert {
+                        title: "Set the desktop wallpaper".to_string(),
+                        body: "Success".to_string(),
+                        percent: 1.0,
+                        severity: NotificationSeverity::Info,
+                        status_message: String::new(),
+                    },
+                    Err(e) => NotificationAlert {
+                        title: "Failed to set the desktop wallpaper".to_string(),
+                        body: format!("{e:?}"),
+                        percent: 1.0,
+                        severity: NotificationSeverity::Error,
+                        status_message: String::new(),
+                    },
+                },
+            };
+            if let Ok(result) = check_err(
+                notification_center
+                    .send(NotificationUpdate(notification))
+                    .await
+                    .map_err(|e| anyhow!("Failed to send notification: {e:?}")),
+            ) {
+                let _ = check_err(result);
+            }
         }
     }
 }
@@ -64,21 +106,20 @@ impl Handler<SetWallpaper> for WallpaperActor {
             DesktopWallpaper::new()
                 .map_err(|e| anyhow!("Failed to init desktop wallpaper client: {e:?}")),
         )?;
-        if let Err(e) = client.set_wallpaper(&selection.path, mode) {
-            debug_print!("Failed to set the desktop wallpaper with `mode` {mode:?}: {e:?}");
-        }
-        Ok(())
+        client
+            .set_wallpaper(&selection.path, mode)
+            .map_err(|e| anyhow!("Failed to set wallpaper {}: {e:?}", selection.path))
     }
 }
 
 // Creates and spawns the actors in the async system.
-pub async fn create_actors() -> Result<()> {
+pub async fn create_actors(notification_center: Address<NotificationActor>) -> Result<()> {
     // Create actor contexts.
     let wallpaper_context = MsgContext::new();
     let wall_addr = wallpaper_context.address();
 
     // Spawn actors.
-    let actor = WallpaperActor::new(wall_addr);
+    let actor = WallpaperActor::new(wall_addr, notification_center);
     spawn(wallpaper_context.run(actor));
     Ok(())
 }

@@ -7,10 +7,14 @@
 
 use std::fmt::Debug;
 use std::path::Path;
+use std::time::Instant;
 use std::{fs, io::Write, path::PathBuf};
 
-use crate::common::{check_err, DATE_FILE_FMT};
-use crate::signals::{BingImageList, BingRefresh, DailyImage};
+use crate::common::{check_err, condense_duration, DATE_FILE_FMT};
+use crate::notification_center::{NotificationActor, NotificationUpdate};
+use crate::signals::{
+    BingImageList, BingRefresh, DailyImage, NotificationAlert, NotificationSeverity,
+};
 use anyhow::{anyhow, Context, Result};
 use chrono::{Local, NaiveDate};
 use messages::prelude::{async_trait, Actor, Address, Context as MsgContext, Handler};
@@ -32,11 +36,12 @@ pub struct BingImages {
 }
 
 // The type for instigating the actor.
-pub struct BingRefreshMsg;
+struct BingRefreshMsg;
 
 // The actor that holds the counter state and handles messages.
 pub struct BingActor {
     app_cache_dir: PathBuf,
+    notification_center: Address<NotificationActor>,
 }
 
 // Implementing the `Actor` trait for `CountingActor`.
@@ -44,9 +49,16 @@ pub struct BingActor {
 impl Actor for BingActor {}
 
 impl BingActor {
-    pub fn new(bing_addr: Address<Self>, app_cache_dir: PathBuf) -> Self {
+    pub fn new(
+        bing_addr: Address<Self>,
+        app_cache_dir: PathBuf,
+        notification_center: Address<NotificationActor>,
+    ) -> Self {
         spawn(Self::listen_to_refresh_trigger(bing_addr));
-        BingActor { app_cache_dir }
+        BingActor {
+            app_cache_dir,
+            notification_center,
+        }
     }
 
     async fn listen_to_refresh_trigger(mut bing_addr: Address<Self>) {
@@ -72,7 +84,19 @@ impl Handler<BingRefreshMsg> for BingActor {
     type Result = Result<()>;
     // Handles messages received by the actor.
     async fn handle(&mut self, _msg: BingRefreshMsg, _context: &MsgContext<Self>) -> Self::Result {
-        debug_print!("Getting Bing images");
+        let debug_title = "Bing images";
+        debug_print!("{debug_title}");
+        let mut notification = NotificationAlert {
+            title: debug_title.to_string(),
+            body: "Checking cache".to_string(),
+            percent: 0.0,
+            severity: NotificationSeverity::Info,
+            status_message: String::new(),
+        };
+        // notification.send_signal_to_dart();
+        let timer = Instant::now();
+        let mut total_steps = 1;
+
         let now = Local::now().date_naive();
         let today = format!("{}.json", now.format(DATE_FILE_FMT));
         let cached_metadata = self.app_cache_dir.join(Path::new(&today));
@@ -82,6 +106,15 @@ impl Handler<BingRefreshMsg> for BingActor {
                     .with_context(|| "Failed to read cached Bing metadata"),
             )?
         } else {
+            notification.body = "Fetching data from Bing".to_string();
+            notification.status_message = condense_duration(timer.elapsed());
+            check_err(check_err(
+                self.notification_center
+                    .send(NotificationUpdate(notification.clone()))
+                    .await
+                    .map_err(|e| anyhow!("Failed to send notification update: {e:?}")),
+            )?)?;
+            total_steps += 1;
             let response = check_err(
                 reqwest::get("https://www.bing.com/HPImageArchive.aspx?format=js&idx=0&n=14")
                     .await
@@ -116,7 +149,9 @@ impl Handler<BingRefreshMsg> for BingActor {
                 })
                 .collect(),
         };
+        image_list.send_signal_to_dart();
         let mut last_day = None;
+        let total_images = images.len();
         for (i, img) in images.into_iter().enumerate() {
             last_day = Some(parse_date(&img.start_date)?);
             let date = last_day.unwrap().format(DATE_FILE_FMT);
@@ -144,8 +179,16 @@ impl Handler<BingRefreshMsg> for BingActor {
                 )?;
             }
             image_list.images[i].url = file_name.to_string_lossy().to_string();
-            // The send method is generated from a marked Protobuf message.
             image_list.send_signal_to_dart();
+            notification.body = format!("Processed {date}");
+            notification.percent =
+                ((i + total_steps) as f32) / ((total_images + total_steps) as f32);
+            check_err(check_err(
+                self.notification_center
+                    .send(NotificationUpdate(notification.clone()))
+                    .await
+                    .map_err(|e| anyhow!("Failed to send notification update: {e:?}")),
+            )?)?;
         }
 
         // dispose outdated cached images
@@ -188,12 +231,23 @@ impl Handler<BingRefreshMsg> for BingActor {
                 }
             }
         }
+        let elapsed = timer.elapsed();
+        notification.percent = 1.0;
+        notification.body = "Cache updated".to_string();
+        notification.status_message = condense_duration(elapsed);
+        check_err(check_err(
+            self.notification_center
+                .send(NotificationUpdate(notification))
+                .await
+                .map_err(|e| anyhow!("Failed to send notification update: {e:?}")),
+        )?)?;
+
         Ok(())
     }
 }
 
 // Creates and spawns the actors in the async system.
-pub async fn create_actors() -> Result<()> {
+pub async fn create_actors(notification_center: Address<NotificationActor>) -> Result<()> {
     // Create actor contexts.
     let bing_context = MsgContext::new();
     let bing_addr = bing_context.address();
@@ -207,7 +261,7 @@ pub async fn create_actors() -> Result<()> {
     }
 
     // Spawn actors.
-    let actor = BingActor::new(bing_addr, app_cache_dir);
+    let actor = BingActor::new(bing_addr, app_cache_dir, notification_center);
     spawn(bing_context.run(actor));
     Ok(())
 }

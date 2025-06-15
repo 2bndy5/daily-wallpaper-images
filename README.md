@@ -13,9 +13,12 @@ This app aims to support
 - [ ] MacOS
 
 Platforms in the above list with a checkmark have been tested.
+
 This app can build/compile for Android, but it does not run correctly (possibly a TLS certificate problem).
+
 I need a MacOS user(s) to test the MacOS builds.
-IOS does not allow programmatically setting the device's wallpaper.
+
+To my knowledge, IOS does not allow programmatically setting the device's wallpaper.
 
 ### Linux desktop environments
 
@@ -25,8 +28,8 @@ See the supported list of desktop environments in [my fork of wallpaper.rs](http
 
 ### Windows
 
-On windows, this app seems to have trouble setting the wallpaper for _virtual_ desktops.
-Technically, this app should set the wallpaper for all monitors' desktops, but this has not been tested (yet).
+On windows, this app sets the wallpaper for all monitors' desktops.
+But this can be made platform-exclusive option.
 
 ## Building from source
 
@@ -39,37 +42,46 @@ To build this app, you need to have installed
 - [Rinf (Rust-in-Flutter)](https://github.com/cunarist/rinf)
 
     ```shell
-    cargo install rinf
+    cargo install rinf_cli
     ```
 
-    Rinf can also be installed with [cargo-binstall](https://github.com/cargo-bins/cargo-binstall).
+    Rinf CLI can also be installed with [cargo-binstall](https://github.com/cargo-bins/cargo-binstall).
 
+You can check that your system is ready with the commands below.
+
+```shell
+rustc --version
+flutter doctor
+rinf help
+```
+
+Note that all the applicable Flutter sub-components should be installed.
 Once the prerequisites are installed, use these commands to run the app:
 
 ```shell
 git clone --recurse-submodules https://github.com/2bndy5/daily-wallpaper-images.git
 cd daily-wallpaper-images
-rinf message
+rinf gen
 flutter run
 ```
 
 ### Using Rust Inside Flutter
 
-Messages sent between Dart and Rust are implemented using [Protobuf](https://protobuf.dev/programming-guides/proto3/).
-If you have newly cloned the project repository
-or made changes to the `.proto` files in the `./messages` directory,
-run the following command:
+This project leverages Flutter for GUI and Rust for the backend logic,
+utilizing the capabilities of the
+[Rinf](https://pub.dev/packages/rinf) framework.
+
+Signals sent between Dart and Rust are implemented using signal attributes.
+If you've modified the signal structs, run the following command
+to generate the corresponding Dart classes:
 
 ```shell
-rinf message
+rinf gen
 ```
-
-This will generate dart code in `./lib/messages/` directory, and the
-corresponding rust generated code is in `./native/hub/src/messages`.
 
 Now you can run and build this app just like any other Flutter projects.
 
-```bash
+```shell
 flutter run
 ```
 
