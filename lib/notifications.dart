@@ -24,20 +24,14 @@ class NotificationBubble extends StatelessWidget {
   Widget build(BuildContext context) {
     final tileColor = _noteColor(alert.severity);
 
-    var info = <Widget>[
-      Align(alignment: Alignment.topLeft, child: Text(alert.body))
-    ];
     var trailing = <Widget>[];
     if (alert.percent < 1.0) {
-      info.add(
-        LinearProgressIndicator(
-          value: alert.percent > 0 ? alert.percent : null,
-        ),
-      );
       trailing.add(
         Stack(
           children: [
-            CircularProgressIndicator(),
+            CircularProgressIndicator(
+              value: alert.percent > 0 ? alert.percent : null,
+            ),
             Positioned(
               width: 36.0,
               height: 36.0,
@@ -64,9 +58,8 @@ class NotificationBubble extends StatelessWidget {
       padding: const EdgeInsets.all(8.0),
       child: ListTile(
         title: Text(alert.title),
-        subtitle: Column(children: info),
-        isThreeLine: true,
-        splashColor: tileColor.withAlpha(127),
+        subtitle: Text(alert.body),
+        splashColor: tileColor.withAlpha(85),
         onTap: onTap,
         contentPadding: EdgeInsets.fromLTRB(16.0, 0, 16.0, 0),
         tileColor: tileColor.withAlpha(23),
