@@ -7,16 +7,18 @@
 
 use std::fmt::Debug;
 use std::path::Path;
-use std::{fs, io::Write, path::PathBuf, time::Instant};
+use std::{fs, path::PathBuf, time::Instant};
 
 use crate::common::{check_err, condense_duration};
 use crate::notification_center::{NotificationActor, NotificationUpdate};
+use crate::services::download_file;
 use crate::signals::{
     DailyImage, NotificationAlert, NotificationSeverity, SpotlightImageList, SpotlightRefresh,
     SpotlightReset,
 };
 use anyhow::{anyhow, Context, Result};
 use messages::prelude::{async_trait, Actor, Address, Context as MsgContext, Handler};
+use reqwest::ClientBuilder;
 use rinf::{debug_print, DartSignal, RustSignal};
 use serde::Deserialize;
 use tokio::spawn;
@@ -175,6 +177,8 @@ impl Handler<SpotlightRefreshMsg> for SpotlightActor {
         let timer = Instant::now();
         let mut total_steps = 1;
 
+        let client = ClientBuilder::new().build()?;
+
         let cached_metadata = self.app_cache_dir.join(Path::new(Self::INFO_FILE));
         let text = if cached_metadata.exists() {
             check_err(
@@ -193,7 +197,9 @@ impl Handler<SpotlightRefreshMsg> for SpotlightActor {
             total_steps += 1;
             let url = "https://fd.api.iris.microsoft.com/v4/api/selection?&placement=88000820&bcnt=4&country=us&locale=en-us&fmt=json";
             let response = check_err(
-                reqwest::get(url)
+                client
+                    .get(url)
+                    .send()
                     .await
                     .with_context(|| "Failed to get list of Windows Spotlight images"),
             )?;
@@ -229,27 +235,22 @@ impl Handler<SpotlightRefreshMsg> for SpotlightActor {
 
         for (i, (id, url)) in new_item_ids.iter().enumerate() {
             let file_name = self.app_cache_dir.join(id);
+            let cache_path = file_name.as_os_str().to_string_lossy().to_string();
             if !file_name.exists() {
-                let response = check_err(
-                    reqwest::get(url)
-                        .await
-                        .with_context(|| "Failed to download image from Windows Spotlight"),
+                check_err(
+                    download_file(
+                        &client,
+                        url,
+                        &cache_path,
+                        id,
+                        (total_steps + total_images) as u8,
+                        &mut self.notification_center,
+                        notification.clone(),
+                    )
+                    .await,
                 )?;
-                let img_bin = check_err(
-                    response
-                        .bytes()
-                        .await
-                        .with_context(|| "Failed to get bytes of image from response payload"),
-                )?;
-                let mut file =
-                    check_err(fs::File::create(&file_name).with_context(|| {
-                        "Failed to create a cache file for Windows Spotlight image"
-                    }))?;
-                check_err(file.write_all(&img_bin).with_context(|| {
-                    "Failed to write Windows Spotlight image data to cache file"
-                }))?;
             }
-            image_list.images[i].url = file_name.to_string_lossy().to_string();
+            image_list.images[i].url = cache_path;
             // The send method is generated from a marked Protobuf message.
             image_list.send_signal_to_dart();
             notification.body = format!("Processed {id}");

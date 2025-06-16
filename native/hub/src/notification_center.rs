@@ -2,7 +2,10 @@ use std::collections::HashMap;
 
 #[cfg(not(target_os = "android"))]
 use crate::set_wallpaper;
-use crate::{bing, nasa, signals::notifications::*, spotlight};
+use crate::{
+    services::{bing, nasa, spotlight},
+    signals::notifications::*,
+};
 use anyhow::Result;
 use chrono::{SecondsFormat, Utc};
 use messages::prelude::{async_trait, Actor, Address, Context as MsgContext, Handler};
@@ -92,7 +95,7 @@ impl Handler<NotificationUpdate> for NotificationActor {
                 }
                 val.update(msg.0.clone());
                 found = true;
-                debug_print!("Updated notification \"{}\" ({})", val.title, val.percent);
+                // debug_print!("Updated notification \"{}\" ({})", val.title, val.percent);
                 break;
             }
         }

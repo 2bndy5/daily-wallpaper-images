@@ -5,101 +5,88 @@
 //! To build a solid app, do not communicate by sharing memory;
 //! instead, share memory by communicating.
 
-use std::{
-    fs,
-    io::Write,
-    path::{Path, PathBuf},
-    time::Instant,
-};
+use std::fmt::Debug;
+use std::path::Path;
+use std::time::Instant;
+use std::{fs, path::PathBuf};
 
-use crate::{
-    common::{check_err, condense_duration, DATE_FILE_FMT},
-    signals::{DailyImage, NasaRefresh, NotificationAlert, NotificationSeverity},
-};
-use crate::{
-    notification_center::{NotificationActor, NotificationUpdate},
-    signals::NasaImageList,
+use crate::common::{check_err, condense_duration, DATE_FILE_FMT};
+use crate::notification_center::{NotificationActor, NotificationUpdate};
+use crate::services::download_file;
+use crate::signals::{
+    BingImageList, BingRefresh, DailyImage, NotificationAlert, NotificationSeverity,
 };
 use anyhow::{anyhow, Context, Result};
 use chrono::{Local, NaiveDate};
 use messages::prelude::{async_trait, Actor, Address, Context as MsgContext, Handler};
-use reqwest::Url;
+use reqwest::ClientBuilder;
 use rinf::{debug_print, DartSignal, RustSignal};
 use serde::Deserialize;
 use tokio::spawn;
 
+#[derive(Debug, Deserialize)]
+pub struct BingImage {
+    pub url: String,
+    #[serde(rename(deserialize = "startdate"))]
+    pub start_date: String,
+    pub copyright: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct BingImages {
+    images: Vec<BingImage>,
+}
+
 // The type for instigating the actor.
-struct NasaRefreshMsg;
+struct BingRefreshMsg;
 
 // The actor that holds the counter state and handles messages.
-pub struct NasaActor {
+pub struct BingActor {
     app_cache_dir: PathBuf,
     notification_center: Address<NotificationActor>,
 }
 
-impl Actor for NasaActor {}
+// Implementing the `Actor` trait for `CountingActor`.
+// This defines `CountingActor` as an actor in the async system.
+impl Actor for BingActor {}
 
-impl NasaActor {
+impl BingActor {
     pub fn new(
-        nasa_addr: Address<Self>,
+        bing_addr: Address<Self>,
         app_cache_dir: PathBuf,
         notification_center: Address<NotificationActor>,
     ) -> Self {
-        spawn(Self::listen_to_refresh_trigger(nasa_addr));
-        NasaActor {
+        spawn(Self::listen_to_refresh_trigger(bing_addr));
+        BingActor {
             app_cache_dir,
             notification_center,
         }
     }
 
-    async fn listen_to_refresh_trigger(mut nasa_addr: Address<Self>) {
+    async fn listen_to_refresh_trigger(mut bing_addr: Address<Self>) {
         // Spawn an asynchronous task to listen for
         // button click signals from Dart.
-        let receiver = NasaRefresh::get_dart_signal_receiver();
+        let receiver = BingRefresh::get_dart_signal_receiver();
         // Continuously listen for signals.
         while let Some(_dart_signal) = receiver.recv().await {
-            debug_print!("refreshing image list from NASA");
+            debug_print!("refreshing image list from Bing");
             // Send a message to the actor.
-            let _ = nasa_addr.send(NasaRefreshMsg).await;
+            let _ = bing_addr.send(BingRefreshMsg).await;
         }
     }
 }
 
-#[derive(Debug, Deserialize)]
-pub struct NasaFeed {
-    pub channel: NasaChannel,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct NasaChannel {
-    pub item: Vec<NasaItem>,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct NasaItem {
-    pub description: String,
-    #[serde(rename = "pubDate")]
-    pub pub_date: String,
-    pub enclosure: NasaImgUrl,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct NasaImgUrl {
-    #[serde(rename = "@url")]
-    pub url: String,
-}
-
 fn parse_date(date: &str) -> Result<NaiveDate> {
-    NaiveDate::parse_from_str(date, "%d %b %Y")
-        .with_context(|| "Failed to parse NASA picture's date.")
+    NaiveDate::parse_from_str(date, "%Y%m%d")
+        .with_context(|| "Failed to parse Bing picture's date.")
 }
 
 #[async_trait]
-impl Handler<NasaRefreshMsg> for NasaActor {
+impl Handler<BingRefreshMsg> for BingActor {
     type Result = Result<()>;
     // Handles messages received by the actor.
-    async fn handle(&mut self, _msg: NasaRefreshMsg, _context: &MsgContext<Self>) -> Self::Result {
-        let debug_title = "NASA images";
+    async fn handle(&mut self, _msg: BingRefreshMsg, _context: &MsgContext<Self>) -> Self::Result {
+        let debug_title = "Bing images";
         debug_print!("{debug_title}");
         let mut notification = NotificationAlert {
             title: debug_title.to_string(),
@@ -108,23 +95,22 @@ impl Handler<NasaRefreshMsg> for NasaActor {
             severity: NotificationSeverity::Info,
             status_message: String::new(),
         };
-        check_err(check_err(
-            self.notification_center
-                .send(NotificationUpdate(notification.clone()))
-                .await
-                .map_err(|e| anyhow!("Failed to send notification update: {e:?}")),
-        )?)?;
+        // notification.send_signal_to_dart();
         let timer = Instant::now();
         let mut total_steps = 1;
 
+        let client = ClientBuilder::new().build()?;
+
         let now = Local::now().date_naive();
-        let today = format!("{}.xml", now.format(DATE_FILE_FMT));
+        let today = format!("{}.json", now.format(DATE_FILE_FMT));
         let cached_metadata = self.app_cache_dir.join(Path::new(&today));
         let text = if cached_metadata.exists() {
-            fs::read_to_string(&cached_metadata)
-                .with_context(|| "Failed to read cached NASA metadata")?
+            check_err(
+                fs::read_to_string(&cached_metadata)
+                    .with_context(|| "Failed to read cached Bing metadata"),
+            )?
         } else {
-            notification.body = "Fetching data from NASA".to_string();
+            notification.body = "Fetching data from Bing".to_string();
             notification.status_message = condense_duration(timer.elapsed());
             check_err(check_err(
                 self.notification_center
@@ -134,72 +120,63 @@ impl Handler<NasaRefreshMsg> for NasaActor {
             )?)?;
             total_steps += 1;
             let response = check_err(
-                reqwest::get("https://www.nasa.gov/rss/dyn/lg_image_of_the_day.rss")
+                client
+                    .get("https://www.bing.com/HPImageArchive.aspx?format=js&idx=0&n=14")
+                    .send()
                     .await
-                    .with_context(|| "Failed to get list of NASA images"),
+                    .with_context(|| "Failed to get list of Bing images"),
             )?;
             let text = check_err(
                 response
                     .text()
                     .await
-                    .with_context(|| "Failed to get body as text from NASA images' response"),
+                    .with_context(|| "Failed to get body as text from Bing images' response"),
             )?;
             check_err(
                 fs::write(&cached_metadata, &text)
-                    .with_context(|| "Failed to write NASA metadata to cache"),
+                    .with_context(|| "Failed to write Bing metadata to cache"),
             )?;
             text
         };
         let images = check_err(
-            quick_xml::de::from_str::<NasaFeed>(&text)
-                .with_context(|| "Failed to deserialize NASA images' response payload."),
+            serde_json::from_str::<BingImages>(&text)
+                .with_context(|| "Failed to deserialize Bing images' response payload."),
         )?
-        .channel
-        .item;
-        let mut image_list = NasaImageList {
+        .images;
+        let mut image_list = BingImageList {
             images: images
                 .iter()
                 .map(|i| DailyImage {
                     url: String::new(),
-                    date: check_err(parse_date(&i.pub_date[5..16]))
+                    date: check_err(parse_date(&i.start_date))
                         .map(|d| d.format(DATE_FILE_FMT).to_string())
-                        .unwrap_or(i.pub_date.clone()),
-                    description: i.description.clone(),
+                        .unwrap_or(i.start_date.clone()),
+                    description: i.copyright.clone(),
                 })
                 .collect(),
         };
         image_list.send_signal_to_dart();
         let mut last_day = None;
         let total_images = images.len();
-        for (i, item) in images.into_iter().enumerate() {
-            last_day = Some(parse_date(&item.pub_date[5..16])?);
+        for (i, img) in images.into_iter().enumerate() {
+            last_day = Some(parse_date(&img.start_date)?);
             let date = last_day.unwrap().format(DATE_FILE_FMT);
-            let file_name = self.app_cache_dir.join(format!(
-                "{date}.{}",
-                Path::new(Url::parse(&item.enclosure.url)?.path())
-                    .extension()
-                    .ok_or(anyhow!("Failed to find image MIME type from NASA URL."))?
-                    .to_string_lossy()
-            ));
+
+            let name = format!("{date}.jpg");
+            let file_name = self.app_cache_dir.join(&name);
+            let cache_path = file_name.to_string_lossy().to_string();
             if !file_name.exists() {
-                let response = check_err(
-                    reqwest::get(&item.enclosure.url)
-                        .await
-                        .with_context(|| "Failed to download image from NASA"),
-                )?;
-                let item_bin = check_err(
-                    response
-                        .bytes()
-                        .await
-                        .with_context(|| "Failed to get bytes of image from response payload"),
-                )?;
-                let mut file = check_err(
-                    fs::File::create(&file_name)
-                        .with_context(|| "Failed to create a cache file for NASA image"),
-                )?;
                 check_err(
-                    file.write_all(&item_bin)
-                        .with_context(|| "Failed to write NASA image data to cache file"),
+                    download_file(
+                        &client,
+                        format!("https://bing.com{}", img.url).as_str(),
+                        &cache_path,
+                        &name,
+                        (total_steps + total_images) as u8,
+                        &mut self.notification_center,
+                        notification.clone(),
+                    )
+                    .await,
                 )?;
             }
             image_list.images[i].url = file_name.to_string_lossy().to_string();
@@ -231,7 +208,7 @@ impl Handler<NasaRefreshMsg> for NasaActor {
                         entry
                             .path()
                             .file_stem()
-                            .ok_or(anyhow!("Failed to get filename for cached NASA image")),
+                            .ok_or(anyhow!("Failed to get filename of cached Bing image/file")),
                     )?
                     .to_string_lossy(),
                     DATE_FILE_FMT,
@@ -245,12 +222,12 @@ impl Handler<NasaRefreshMsg> for NasaActor {
                                 .ok_or(anyhow!("Failed to get cached file's extension")),
                         )?
                         .to_string_lossy()
-                        .ends_with("xml"))
+                        .ends_with("json"))
                 {
                     debug_print!("Deleting outdated cache file {:?}", entry.path());
                     check_err(
                         fs::remove_file(entry.path())
-                            .with_context(|| "Failed to delete outdated NASA cache file"),
+                            .with_context(|| "Failed to delete outdated Nasa cache file"),
                     )?;
                 }
             }
@@ -265,6 +242,7 @@ impl Handler<NasaRefreshMsg> for NasaActor {
                 .await
                 .map_err(|e| anyhow!("Failed to send notification update: {e:?}")),
         )?)?;
+
         Ok(())
     }
 }
@@ -272,41 +250,19 @@ impl Handler<NasaRefreshMsg> for NasaActor {
 // Creates and spawns the actors in the async system.
 pub async fn create_actors(notification_center: Address<NotificationActor>) -> Result<()> {
     // Create actor contexts.
-    let nasa_context = MsgContext::new();
-    let nasa_addr = nasa_context.address();
+    let bing_context = MsgContext::new();
+    let bing_addr = bing_context.address();
 
     let cache_dir = dirs::cache_dir().ok_or(anyhow!(
         "Failed to detect system cache folder; Is this running on a desktop?"
     ))?;
-    let app_cache_dir = cache_dir.join("Daily-Images").join("NASA");
+    let app_cache_dir = cache_dir.join("Daily-Images").join("Bing");
     if !app_cache_dir.exists() {
         fs::create_dir_all(&app_cache_dir)?;
     }
 
     // Spawn actors.
-    let actor = NasaActor::new(nasa_addr, app_cache_dir, notification_center);
-    spawn(nasa_context.run(actor));
+    let actor = BingActor::new(bing_addr, app_cache_dir, notification_center);
+    spawn(bing_context.run(actor));
     Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::NasaFeed;
-    use anyhow::Context;
-    use std::{fs, io::Read};
-
-    #[test]
-    fn parse_nasa_rss() {
-        let mut text = String::new();
-        fs::File::open("tests/nasa-rss-feed.xml")
-            .unwrap()
-            .read_to_string(&mut text)
-            .unwrap();
-        let items = quick_xml::de::from_str::<NasaFeed>(&text)
-            .with_context(|| "Failed to deserialize NASA images' response payload.")
-            .unwrap()
-            .channel
-            .item;
-        assert!(!items.is_empty());
-    }
 }
