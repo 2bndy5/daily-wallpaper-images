@@ -89,7 +89,12 @@ class _MyHomePageState extends State<MyHomePage> {
         ),
         actions: [
           Builder(builder: (context) {
-            return NotificationsMonitor();
+            return IconButton(
+              onPressed: () {
+                Scaffold.of(context).openEndDrawer();
+              },
+              icon: Icon(Icons.notifications),
+            );
           }),
         ],
       ),

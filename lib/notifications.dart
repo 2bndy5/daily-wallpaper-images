@@ -22,61 +22,67 @@ class NotificationBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    var finished = alert.percent >= 1.0;
-    final fontColor = switch (alert.severity) {
-      NotificationSeverity.warning => Colors.black,
-      _ => Colors.white,
-    };
     final tileColor = _noteColor(alert.severity);
 
-    final textTheme = Theme.of(context).textTheme;
-    final finishIcon = Icon(switch (alert.severity) {
-      NotificationSeverity.debug => Icons.bug_report,
-      NotificationSeverity.info => Icons.check_circle_outline_rounded,
-      NotificationSeverity.warning => Icons.warning,
-      NotificationSeverity.error => Icons.error,
-    });
+    var info = <Widget>[
+      Align(alignment: Alignment.topLeft, child: Text(alert.body))
+    ];
+    var trailing = <Widget>[];
+    if (alert.percent < 1.0) {
+      info.add(
+        LinearProgressIndicator(
+          value: alert.percent > 0 ? alert.percent : null,
+        ),
+      );
+      trailing.add(
+        Stack(
+          children: [
+            CircularProgressIndicator(),
+            Positioned(
+              width: 36.0,
+              height: 36.0,
+              child: Align(
+                child: Center(
+                  child: Text("${(alert.percent * 100).floor()}%"),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    } else {
+      final finishIcon = Icon(switch (alert.severity) {
+        NotificationSeverity.debug => Icons.bug_report,
+        NotificationSeverity.info => Icons.check_circle_outline_rounded,
+        NotificationSeverity.warning => Icons.warning,
+        NotificationSeverity.error => Icons.error,
+      });
+      trailing.addAll([finishIcon, Text(alert.statusMessage)]);
+    }
 
     return Padding(
       padding: const EdgeInsets.all(8.0),
       child: ListTile(
-        title: Text(
-          alert.title,
-          style: textTheme.labelLarge?.copyWith(color: fontColor),
-        ),
-        subtitle: Text(
-          alert.body,
-          style: textTheme.labelMedium?.copyWith(color: fontColor),
-        ),
-        splashColor: tileColor,
+        title: Text(alert.title),
+        subtitle: Column(children: info),
+        isThreeLine: true,
+        splashColor: tileColor.withAlpha(127),
         onTap: onTap,
         contentPadding: EdgeInsets.fromLTRB(16.0, 0, 16.0, 0),
-        tileColor: tileColor.withAlpha(135),
-        textColor: fontColor,
+        tileColor: tileColor.withAlpha(23),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadiusGeometry.circular(32.0),
+          side: BorderSide(color: tileColor),
+          borderRadius: BorderRadiusGeometry.circular(16.0),
         ),
-        // trailing: finished
-        //     ? IconButton(onPressed: () {}, icon: Icon(Icons.close))
-        //     : null,
-        leading: finished
-            ? alert.statusMessage.isEmpty
-                ? finishIcon
-                : Text(alert.statusMessage)
-            : CircularProgressIndicator(value: alert.percent),
+        trailing: Column(children: trailing),
       ),
     );
   }
 }
 
-class NotificationCenter extends StatefulWidget {
+class NotificationCenter extends StatelessWidget {
   const NotificationCenter({super.key});
 
-  @override
-  State<NotificationCenter> createState() => _NotificationCenterState();
-}
-
-class _NotificationCenterState extends State<NotificationCenter> {
   @override
   Widget build(BuildContext context) {
     NotificationRefresh().sendSignalToRust();
@@ -99,14 +105,16 @@ class _NotificationCenterState extends State<NotificationCenter> {
                 : Center(
                     child: Text("No new notifications to brag about"),
                   ))
-            : Center(
-                child: Column(
-                spacing: 10.0,
-                children: [
-                  CircularProgressIndicator(),
-                  Text("Refreshing"),
-                ],
-              ));
+            : Align(
+                child: Center(
+                    child: Column(
+                  spacing: 10.0,
+                  children: [
+                    CircularProgressIndicator(),
+                    Text("Refreshing"),
+                  ],
+                )),
+              );
         return Drawer(
           child: Column(
             children: <Widget>[
@@ -152,63 +160,35 @@ class _NotificationCenterState extends State<NotificationCenter> {
   }
 }
 
-class NotificationsMonitor extends StatefulWidget {
-  const NotificationsMonitor({
-    super.key,
-  });
-
-  @override
-  State<NotificationsMonitor> createState() => _NotificationsMonitorState();
-}
-
-class _NotificationsMonitorState extends State<NotificationsMonitor> {
-  var notifications = <String, NotificationAlert>{};
-  ({String key, NotificationAlert alert})? newNote;
+class NotificationsMonitor extends StatelessWidget {
+  const NotificationsMonitor({super.key});
 
   @override
   Widget build(BuildContext context) {
     return StreamBuilder(
       stream: NotificationResults.rustSignalStream,
-      builder: (context, asyncSnapshot) {
-        if (asyncSnapshot.hasData) {
-          final data = asyncSnapshot.data!.message.notifications;
-          if (data.isEmpty) {
-            newNote = null;
-          } else {
-            var foundNew = false;
-            for (final entry in data.entries) {
-              if (!notifications.containsKey(entry.key)) {
-                newNote = (
-                  key: entry.key,
-                  alert: entry.value,
-                );
-                foundNew = true;
-                break;
-              }
-            }
-            if (!foundNew &&
-                newNote != null &&
-                data.containsKey(newNote!.key)) {
-              newNote = (key: newNote!.key, alert: data[newNote!.key]!);
-            }
-          }
-          notifications = data;
-        }
-
-        final child = newNote != null && newNote!.alert.percent < 1.0
-            ? CircularProgressIndicator(
-                value: newNote!.alert.percent,
-                color: _noteColor(newNote!.alert.severity),
-                padding: EdgeInsets.all(5),
+      builder: (context, snapshot) {
+        List<String>? pending = snapshot.data?.message.pending;
+        Map<String, NotificationAlert>? data =
+            snapshot.data?.message.notifications;
+        final popUp = pending != null && pending.isNotEmpty && snapshot.hasData
+            ? SizedBox(
+                height: 80,
+                child: ListView(
+                  children: List.from(
+                    pending.map(
+                      (entry) => NotificationBubble(
+                        data![entry]!,
+                        onTap: () => NotificationDismiss(
+                          timestamp: entry,
+                        ).sendSignalToRust(),
+                      ),
+                    ),
+                  ),
+                ),
               )
-            : Icon(Icons.notifications);
-
-        return IconButton(
-          onPressed: () {
-            Scaffold.of(context).openEndDrawer();
-          },
-          icon: child,
-        );
+            : Container();
+        return popUp;
       },
     );
   }

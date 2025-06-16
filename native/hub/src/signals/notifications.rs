@@ -17,6 +17,7 @@ pub struct NotificationDismissAll;
 #[derive(Debug, RustSignal, Serialize)]
 pub struct NotificationResults {
     pub notifications: HashMap<String, NotificationAlert>,
+    pub pending: Vec<String>,
 }
 
 #[derive(Debug, SignalPiece, Deserialize, Serialize, Clone)]

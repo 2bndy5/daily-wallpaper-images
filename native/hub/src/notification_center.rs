@@ -11,8 +11,24 @@ use tokio::spawn;
 
 pub struct NotificationUpdate(pub NotificationAlert);
 
+pub struct Notifications(pub HashMap<String, NotificationAlert>);
+
+impl Notifications {
+    fn get_pending(&self) -> Vec<String> {
+        self.0
+            .iter()
+            .filter_map(|(key, alert)| {
+                if alert.percent < 1.0 {
+                    Some(key.to_owned())
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<String>>()
+    }
+}
 pub struct NotificationActor {
-    notifications: HashMap<String, NotificationAlert>,
+    notifications: Notifications,
 }
 
 impl Actor for NotificationActor {}
@@ -22,7 +38,7 @@ impl NotificationActor {
         spawn(Self::listen_to_dismiss(notification_addr.clone()));
         spawn(Self::listen_to_dismiss_all(notification_addr));
         Self {
-            notifications: HashMap::new(),
+            notifications: Notifications(HashMap::new()),
         }
     }
 
@@ -68,7 +84,7 @@ impl Handler<NotificationUpdate> for NotificationActor {
     ) -> Self::Result {
         let mut found = false;
         let mut old_key = None;
-        for (key, val) in self.notifications.iter_mut() {
+        for (key, val) in self.notifications.0.iter_mut() {
             if val.title == msg.0.title {
                 if val.percent >= 1.0 {
                     old_key = Some(key.to_owned());
@@ -81,18 +97,17 @@ impl Handler<NotificationUpdate> for NotificationActor {
             }
         }
         if let Some(old_key) = old_key {
-            let old = self.notifications.remove(&old_key).unwrap();
+            let old = self.notifications.0.remove(&old_key).unwrap();
             debug_print!("Removed outdated notification \"{}\"", old.title);
         }
         if !found {
             debug_print!("Adding new notification \"{}\"", msg.0.title);
-            self.notifications.insert(
-                Utc::now().to_rfc3339_opts(SecondsFormat::Millis, false),
-                msg.0,
-            );
+            let timestamp = Utc::now().to_rfc3339_opts(SecondsFormat::Millis, false);
+            self.notifications.0.insert(timestamp, msg.0);
         }
         NotificationResults {
-            notifications: self.notifications.clone(),
+            notifications: self.notifications.0.clone(),
+            pending: self.notifications.get_pending(),
         }
         .send_signal_to_dart();
         Ok(())
@@ -109,7 +124,8 @@ impl Handler<NotificationRefresh> for NotificationActor {
         _context: &MsgContext<Self>,
     ) -> Self::Result {
         NotificationResults {
-            notifications: self.notifications.clone(),
+            notifications: self.notifications.0.clone(),
+            pending: self.notifications.get_pending(),
         }
         .send_signal_to_dart();
         debug_print!("Done refreshing notifications");
@@ -126,10 +142,11 @@ impl Handler<NotificationDismiss> for NotificationActor {
         msg: NotificationDismiss,
         _context: &MsgContext<Self>,
     ) -> Self::Result {
-        if let Some(entry) = self.notifications.remove_entry(&msg.timestamp) {
+        if let Some(entry) = self.notifications.0.remove_entry(&msg.timestamp) {
             debug_print!("Dismissed \"{}\"", entry.1.title);
             NotificationResults {
-                notifications: self.notifications.clone(),
+                notifications: self.notifications.0.clone(),
+                pending: self.notifications.get_pending(),
             }
             .send_signal_to_dart();
         }
@@ -146,10 +163,11 @@ impl Handler<NotificationDismissAll> for NotificationActor {
         _msg: NotificationDismissAll,
         _context: &MsgContext<Self>,
     ) -> Self::Result {
-        self.notifications.clear();
+        self.notifications.0.clear();
         debug_print!("Dismissed all notifications");
         NotificationResults {
-            notifications: self.notifications.clone(),
+            notifications: self.notifications.0.clone(),
+            pending: Vec::new(),
         }
         .send_signal_to_dart();
         Ok(())

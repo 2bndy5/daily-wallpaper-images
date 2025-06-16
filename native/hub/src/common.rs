@@ -14,7 +14,7 @@ pub fn check_err<T>(result: Result<T>) -> Result<T> {
 pub fn condense_duration(duration: Duration) -> String {
     let seconds = duration.as_secs();
     if seconds > 0 {
-        format!("{seconds} sec")
+        format!("{seconds} s")
     } else {
         let millis = duration.as_millis();
         format!("{millis} ms")
