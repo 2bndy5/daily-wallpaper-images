@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:daily_wallpaper_images/src/bindings/bindings.dart';
 
-Color _noteColor(NotificationSeverity severity) {
+Color getSeverityColor(NotificationSeverity severity) {
   return switch (severity) {
     NotificationSeverity.debug => Colors.purple,
     NotificationSeverity.info => Colors.green,
@@ -22,7 +22,7 @@ class NotificationBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tileColor = _noteColor(alert.severity);
+    final tileColor = getSeverityColor(alert.severity);
 
     var trailing = <Widget>[];
     if (alert.percent < 1.0) {

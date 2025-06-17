@@ -81,14 +81,36 @@ class _MyHomePageState extends State<MyHomePage> {
           },
         ),
         actions: [
-          Builder(builder: (context) {
-            return IconButton(
-              onPressed: () {
-                Scaffold.of(context).openEndDrawer();
-              },
-              icon: Icon(Icons.notifications),
-            );
-          }),
+          StreamBuilder(
+              stream: NotificationResults.rustSignalStream,
+              builder: (context, snapShot) {
+                Color? statusColor;
+                if (snapShot.hasData) {
+                  NotificationSeverity? highest;
+                  for (final alert
+                      in snapShot.data!.message.notifications.values) {
+                    if (highest == null ||
+                        alert.severity.index > highest.index) {
+                      highest = alert.severity;
+                    }
+                  }
+                  if (highest != null) {
+                    statusColor = getSeverityColor(highest);
+                  }
+                }
+
+                return IconButton(
+                  onPressed: () {
+                    Scaffold.of(context).openEndDrawer();
+                  },
+                  icon: statusColor != null
+                      ? Badge(
+                          backgroundColor: statusColor,
+                          child: Icon(Icons.notifications),
+                        )
+                      : Icon(Icons.notifications),
+                );
+              }),
         ],
       ),
       drawer: Drawer(
