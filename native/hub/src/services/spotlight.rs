@@ -9,10 +9,9 @@ use std::fmt::Debug;
 use std::path::Path;
 use std::{fs, time::Instant};
 
-use crate::common::{check_err, condense_duration};
-use crate::notification_center::{NotificationActor, NotificationUpdate};
+use crate::common::condense_duration;
+use crate::notification_center::NotificationActor;
 use crate::services::actor::ImageServiceActor;
-use crate::services::download_file;
 use crate::signals::{
     DailyImage, ImageList, ImageService, NotificationAlert, NotificationSeverity,
 };
@@ -103,7 +102,7 @@ impl Handler<SpotlightRefresh> for ImageServiceActor {
         _msg: SpotlightRefresh,
         _context: &MsgContext<Self>,
     ) -> Self::Result {
-        let debug_title = "Windows Spotlight images";
+        let debug_title = format!("{} images", ImageService::Spotlight.as_str());
         debug_print!("{debug_title}");
         let mut notification = NotificationAlert {
             title: debug_title.to_string(),
@@ -112,12 +111,7 @@ impl Handler<SpotlightRefresh> for ImageServiceActor {
             severity: NotificationSeverity::Info,
             status_message: String::new(),
         };
-        check_err(check_err(
-            self.notification_center
-                .send(NotificationUpdate(notification.clone()))
-                .await
-                .map_err(|e| anyhow!("Failed to send notification update: {e:?}")),
-        )?)?;
+        self.check_notify_send_error(notification.clone()).await?;
         let timer = Instant::now();
         let mut total_steps = 1;
 
@@ -126,44 +120,54 @@ impl Handler<SpotlightRefresh> for ImageServiceActor {
         let app_cache_dir = self.app_cache_dir.join(ImageService::Spotlight.as_str());
         let cached_metadata = app_cache_dir.join(Path::new(Self::INFO_FILE));
         let text = if cached_metadata.exists() {
-            check_err(
+            self.notify_err(
                 fs::read_to_string(&cached_metadata)
                     .with_context(|| "Failed to read cached Windows Spotlight metadata"),
-            )?
+                ImageService::Spotlight,
+            )
+            .await?
         } else {
             notification.body = "Fetching data from Windows Spotlight".to_string();
             notification.status_message = condense_duration(timer.elapsed());
-            check_err(check_err(
-                self.notification_center
-                    .send(NotificationUpdate(notification.clone()))
-                    .await
-                    .map_err(|e| anyhow!("Failed to send notification update: {e:?}")),
-            )?)?;
+            self.check_notify_send_error(notification.clone()).await?;
             total_steps += 1;
             let url = "https://fd.api.iris.microsoft.com/v4/api/selection?&placement=88000820&bcnt=4&country=us&locale=en-us&fmt=json";
-            let response = check_err(
-                client
-                    .get(url)
-                    .send()
-                    .await
-                    .with_context(|| "Failed to get list of Windows Spotlight images"),
-            )?;
-            let text = check_err(response.text().await.with_context(|| {
-                "Failed to get body as text from Windows Spotlight images' response"
-            }))?;
-            check_err(
+            let response = self
+                .notify_err(
+                    client
+                        .get(url)
+                        .send()
+                        .await
+                        .with_context(|| "Failed to get list of Windows Spotlight images"),
+                    ImageService::Spotlight,
+                )
+                .await?;
+            let text = self
+                .notify_err(
+                    response.text().await.with_context(|| {
+                        "Failed to get body as text from Windows Spotlight images' response"
+                    }),
+                    ImageService::Spotlight,
+                )
+                .await?;
+            self.notify_err(
                 fs::write(&cached_metadata, &text)
                     .with_context(|| "Failed to write Windows Spotlight metadata to cache"),
-            )?;
+                ImageService::Spotlight,
+            )
+            .await?;
             text
         };
-        let items = check_err(
-            serde_json::from_str::<SpotlightImages>(&text).with_context(|| {
-                "Failed to deserialize Windows Spotlight images' response payload."
-            }),
-        )?
-        .batch_response
-        .items;
+        let items = self
+            .notify_err(
+                serde_json::from_str::<SpotlightImages>(&text).with_context(|| {
+                    "Failed to deserialize Windows Spotlight images' response payload."
+                }),
+                ImageService::Spotlight,
+            )
+            .await?
+            .batch_response
+            .items;
         let total_images = items.len();
         let mut image_list = ImageList {
             images: vec![],
@@ -185,18 +189,17 @@ impl Handler<SpotlightRefresh> for ImageServiceActor {
             let file_name = app_cache_dir.join(id);
             let cache_path = file_name.as_os_str().to_string_lossy().to_string();
             if !file_name.exists() {
-                check_err(
-                    download_file(
+                let result = self
+                    .download_image(
                         &client,
                         url,
                         &cache_path,
                         id,
                         (total_steps + total_images) as u8,
-                        &mut self.notification_center,
                         notification.clone(),
                     )
-                    .await,
-                )?;
+                    .await;
+                self.notify_err(result, ImageService::Spotlight).await?;
             }
             image_list.images[i].url = cache_path;
             // The send method is generated from a marked Protobuf message.
@@ -204,32 +207,34 @@ impl Handler<SpotlightRefresh> for ImageServiceActor {
             notification.body = format!("Processed {id}");
             notification.percent =
                 ((i + total_steps) as f32) / ((total_images + total_steps) as f32);
-            check_err(check_err(
-                self.notification_center
-                    .send(NotificationUpdate(notification.clone()))
-                    .await
-                    .map_err(|e| anyhow!("Failed to send notification update: {e:?}")),
-            )?)?;
+            self.check_notify_send_error(notification.clone()).await?;
         }
 
         let new_ids = new_item_ids.iter().map(|i| i.0.clone()).collect::<Vec<_>>();
         // dispose outdated cached images
-        for entry in (check_err(
-            fs::read_dir(&app_cache_dir).with_context(|| "Failed to read cache folder contents."),
-        )?)
-        .flatten()
+        for entry in (self
+            .notify_err(
+                fs::read_dir(&app_cache_dir)
+                    .with_context(|| "Failed to read cache folder contents."),
+                ImageService::Spotlight,
+            )
+            .await?)
+            .flatten()
         {
             if !entry.path().is_file() {
                 continue;
             }
-            if check_err(
-                entry
-                    .path()
-                    .extension()
-                    .ok_or(anyhow!("Failed to get cached file's extension")),
-            )?
-            .to_string_lossy()
-            .ends_with("json")
+            if self
+                .notify_err(
+                    entry
+                        .path()
+                        .extension()
+                        .ok_or(anyhow!("Failed to get cached file's extension")),
+                    ImageService::Spotlight,
+                )
+                .await?
+                .to_string_lossy()
+                .ends_with("json")
             {
                 continue;
             }
@@ -242,23 +247,19 @@ impl Handler<SpotlightRefresh> for ImageServiceActor {
                     .to_string(),
             ) {
                 debug_print!("Deleting outdated cache file {:?}", entry.path());
-                check_err(
+                self.notify_err(
                     fs::remove_file(entry.path())
                         .with_context(|| "Failed to delete outdated Nasa cache file"),
-                )?;
+                    ImageService::Spotlight,
+                )
+                .await?;
             }
         }
         let elapsed = timer.elapsed();
         notification.percent = 1.0;
         notification.body = "Cache updated".to_string();
         notification.status_message = condense_duration(elapsed);
-        check_err(check_err(
-            self.notification_center
-                .send(NotificationUpdate(notification))
-                .await
-                .map_err(|e| anyhow!("Failed to send notification update: {e:?}")),
-        )?)?;
-        Ok(())
+        self.check_notify_send_error(notification).await
     }
 }
 

@@ -11,9 +11,7 @@ use std::path::Path;
 use std::time::Instant;
 
 use crate::common::{check_err, condense_duration, DATE_FILE_FMT};
-use crate::notification_center::NotificationUpdate;
 use crate::services::actor::ImageServiceActor;
-use crate::services::download_file;
 use crate::signals::{
     DailyImage, ImageList, ImageService, NotificationAlert, NotificationSeverity,
 };
@@ -50,7 +48,7 @@ impl Handler<BingRefresh> for ImageServiceActor {
     type Result = Result<()>;
     // Handles messages received by the actor.
     async fn handle(&mut self, _msg: BingRefresh, _context: &MsgContext<Self>) -> Self::Result {
-        let debug_title = "Bing images";
+        let debug_title = format!("{} images", ImageService::Bing.as_str());
         debug_print!("{debug_title}");
         let mut notification = NotificationAlert {
             title: debug_title.to_string(),
@@ -77,37 +75,43 @@ impl Handler<BingRefresh> for ImageServiceActor {
         } else {
             notification.body = "Fetching data from Bing".to_string();
             notification.status_message = condense_duration(timer.elapsed());
-            check_err(check_err(
-                self.notification_center
-                    .send(NotificationUpdate(notification.clone()))
-                    .await
-                    .map_err(|e| anyhow!("Failed to send notification update: {e:?}")),
-            )?)?;
+            self.check_notify_send_error(notification.clone()).await?;
             total_steps += 1;
-            let response = check_err(
-                client
-                    .get("https://www.bing.com/HPImageArchive.aspx?format=js&idx=0&n=14")
-                    .send()
-                    .await
-                    .with_context(|| "Failed to get list of Bing images"),
-            )?;
-            let text = check_err(
-                response
-                    .text()
-                    .await
-                    .with_context(|| "Failed to get body as text from Bing images' response"),
-            )?;
-            check_err(
+            let response = self
+                .notify_err(
+                    client
+                        .get("https://www.bing.com/HPImageArchive.aspx?format=js&idx=0&n=14")
+                        .send()
+                        .await
+                        .with_context(|| "Failed to get list of Bing images"),
+                    ImageService::Bing,
+                )
+                .await?;
+            let text = self
+                .notify_err(
+                    response
+                        .text()
+                        .await
+                        .with_context(|| "Failed to get body as text from Bing images' response"),
+                    ImageService::Bing,
+                )
+                .await?;
+            self.notify_err(
                 fs::write(&cached_metadata, &text)
                     .with_context(|| "Failed to write Bing metadata to cache"),
-            )?;
+                ImageService::Bing,
+            )
+            .await?;
             text
         };
-        let images = check_err(
-            serde_json::from_str::<BingImages>(&text)
-                .with_context(|| "Failed to deserialize Bing images' response payload."),
-        )?
-        .images;
+        let images = self
+            .notify_err(
+                serde_json::from_str::<BingImages>(&text)
+                    .with_context(|| "Failed to deserialize Bing images' response payload."),
+                ImageService::Bing,
+            )
+            .await?
+            .images;
         let mut image_list = ImageList {
             service: ImageService::Bing,
             images: images
@@ -132,69 +136,74 @@ impl Handler<BingRefresh> for ImageServiceActor {
             let file_name = app_cache_dir.join(&name);
             let cache_path = file_name.to_string_lossy().to_string();
             if !file_name.exists() {
-                check_err(
-                    download_file(
+                let result = self
+                    .download_image(
                         &client,
                         format!("https://bing.com{}", img.url).as_str(),
                         &cache_path,
                         &name,
                         (total_steps + total_images) as u8,
-                        &mut self.notification_center,
                         notification.clone(),
                     )
-                    .await,
-                )?;
+                    .await;
+                self.notify_err(result, ImageService::Bing).await?;
             }
             image_list.images[i].url = file_name.to_string_lossy().to_string();
             image_list.send_signal_to_dart();
             notification.body = format!("Processed {date}");
             notification.percent =
                 ((i + total_steps) as f32) / ((total_images + total_steps) as f32);
-            check_err(check_err(
-                self.notification_center
-                    .send(NotificationUpdate(notification.clone()))
-                    .await
-                    .map_err(|e| anyhow!("Failed to send notification update: {e:?}")),
-            )?)?;
+            self.check_notify_send_error(notification.clone()).await?;
         }
 
         // dispose outdated cached images
         if let Some(last_day) = last_day {
-            for entry in (check_err(
-                fs::read_dir(&app_cache_dir)
-                    .with_context(|| "Failed to read cache folder contents."),
-            )?)
-            .flatten()
+            for entry in self
+                .notify_err(
+                    fs::read_dir(&app_cache_dir)
+                        .with_context(|| "Failed to read cache folder contents."),
+                    ImageService::Bing,
+                )
+                .await?
+                .flatten()
             {
                 if !entry.path().is_file() {
                     continue;
                 }
                 let date = NaiveDate::parse_from_str(
-                    &check_err(
-                        entry
-                            .path()
-                            .file_stem()
-                            .ok_or(anyhow!("Failed to get filename of cached Bing image/file")),
-                    )?
-                    .to_string_lossy(),
+                    &self
+                        .notify_err(
+                            entry
+                                .path()
+                                .file_stem()
+                                .ok_or(anyhow!("Failed to get filename of cached Bing image/file")),
+                            ImageService::Bing,
+                        )
+                        .await?
+                        .to_string_lossy(),
                     DATE_FILE_FMT,
                 )?;
                 if date < last_day
                     || (date != now
-                        && check_err(
-                            entry
-                                .path()
-                                .extension()
-                                .ok_or(anyhow!("Failed to get cached file's extension")),
-                        )?
-                        .to_string_lossy()
-                        .ends_with("json"))
+                        && self
+                            .notify_err(
+                                entry
+                                    .path()
+                                    .extension()
+                                    .ok_or(anyhow!("Failed to get cached file's extension")),
+                                ImageService::Bing,
+                            )
+                            .await?
+                            .to_string_lossy()
+                            .ends_with("json"))
                 {
                     debug_print!("Deleting outdated cache file {:?}", entry.path());
-                    check_err(
+                    self.notify_err(
                         fs::remove_file(entry.path())
                             .with_context(|| "Failed to delete outdated Nasa cache file"),
-                    )?;
+                        ImageService::Bing,
+                    )
+                    .await?;
                 }
             }
         }
@@ -202,13 +211,6 @@ impl Handler<BingRefresh> for ImageServiceActor {
         notification.percent = 1.0;
         notification.body = "Cache updated".to_string();
         notification.status_message = condense_duration(elapsed);
-        check_err(check_err(
-            self.notification_center
-                .send(NotificationUpdate(notification))
-                .await
-                .map_err(|e| anyhow!("Failed to send notification update: {e:?}")),
-        )?)?;
-
-        Ok(())
+        self.check_notify_send_error(notification).await
     }
 }

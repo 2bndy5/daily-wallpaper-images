@@ -5,14 +5,16 @@
 //! To build a solid app, do not communicate by sharing memory;
 //! instead, share memory by communicating.
 
+use std::time::Duration;
 use std::{fs, path::Path, time::Instant};
 
+use crate::common::check_err;
+use crate::signals::ImageList;
 use crate::{
-    common::{check_err, condense_duration, DATE_FILE_FMT},
-    services::{actor::ImageServiceActor, download_file},
+    common::{condense_duration, DATE_FILE_FMT},
+    services::actor::ImageServiceActor,
     signals::{DailyImage, ImageService, NotificationAlert, NotificationSeverity},
 };
-use crate::{notification_center::NotificationUpdate, signals::ImageList};
 use anyhow::{anyhow, Context, Result};
 use chrono::{Local, NaiveDate};
 use messages::prelude::{async_trait, Context as MsgContext, Handler};
@@ -57,7 +59,7 @@ impl Handler<NasaRefresh> for ImageServiceActor {
     type Result = Result<()>;
     // Handles messages received by the actor.
     async fn handle(&mut self, _msg: NasaRefresh, _context: &MsgContext<Self>) -> Self::Result {
-        let debug_title = "NASA images";
+        let debug_title = format!("{} images", ImageService::Nasa.as_str());
         debug_print!("{debug_title}");
         let mut notification = NotificationAlert {
             title: debug_title.to_string(),
@@ -66,12 +68,7 @@ impl Handler<NasaRefresh> for ImageServiceActor {
             severity: NotificationSeverity::Info,
             status_message: String::new(),
         };
-        check_err(check_err(
-            self.notification_center
-                .send(NotificationUpdate(notification.clone()))
-                .await
-                .map_err(|e| anyhow!("Failed to send notification update: {e:?}")),
-        )?)?;
+        self.check_notify_send_error(notification.clone()).await?;
         let timer = Instant::now();
         let mut total_steps = 1;
 
@@ -88,38 +85,45 @@ impl Handler<NasaRefresh> for ImageServiceActor {
         } else {
             notification.body = "Fetching data from NASA".to_string();
             notification.status_message = condense_duration(timer.elapsed());
-            check_err(check_err(
-                self.notification_center
-                    .send(NotificationUpdate(notification.clone()))
-                    .await
-                    .map_err(|e| anyhow!("Failed to send notification update: {e:?}")),
-            )?)?;
+            self.check_notify_send_error(notification.clone()).await?;
             total_steps += 1;
-            let response = check_err(
-                client
-                    .get("https://www.nasa.gov/rss/dyn/lg_image_of_the_day.rss")
-                    .send()
-                    .await
-                    .with_context(|| "Failed to get list of NASA images"),
-            )?;
-            let text = check_err(
-                response
-                    .text()
-                    .await
-                    .with_context(|| "Failed to get body as text from NASA images' response"),
-            )?;
-            check_err(
+            let response = self
+                .notify_err(
+                    client
+                        .get("https://www.nasa.gov/rss/dyn/lg_image_of_the_day.rss")
+                        .timeout(Duration::from_secs(15))
+                        .send()
+                        .await
+                        .with_context(|| "Failed to get list of NASA images"),
+                    ImageService::Nasa,
+                )
+                .await?;
+            let text = self
+                .notify_err(
+                    response
+                        .text()
+                        .await
+                        .with_context(|| "Failed to get body as text from NASA images' response"),
+                    ImageService::Nasa,
+                )
+                .await?;
+            self.notify_err(
                 fs::write(&cached_metadata, &text)
                     .with_context(|| "Failed to write NASA metadata to cache"),
-            )?;
+                ImageService::Nasa,
+            )
+            .await?;
             text
         };
-        let images = check_err(
-            quick_xml::de::from_str::<NasaFeed>(&text)
-                .with_context(|| "Failed to deserialize NASA images' response payload."),
-        )?
-        .channel
-        .item;
+        let images = self
+            .notify_err(
+                quick_xml::de::from_str::<NasaFeed>(&text)
+                    .with_context(|| "Failed to deserialize NASA images' response payload."),
+                ImageService::Nasa,
+            )
+            .await?
+            .channel
+            .item;
         let mut image_list = ImageList {
             service: ImageService::Nasa,
             images: images
@@ -141,77 +145,86 @@ impl Handler<NasaRefresh> for ImageServiceActor {
             let date = last_day.unwrap().format(DATE_FILE_FMT);
             let name = format!(
                 "{date}.{}",
-                Path::new(Url::parse(&item.enclosure.url)?.path())
-                    .extension()
-                    .ok_or(anyhow!("Failed to find image MIME type from NASA URL."))?
-                    .to_string_lossy()
+                self.notify_err(
+                    Path::new(Url::parse(&item.enclosure.url)?.path())
+                        .extension()
+                        .ok_or(anyhow!("Failed to find image MIME type from NASA URL.")),
+                    ImageService::Nasa,
+                )
+                .await?
+                .to_string_lossy()
             );
             let file_name = app_cache_dir.join(&name);
             let cache_path = file_name.to_string_lossy().to_string();
             if !file_name.exists() {
-                check_err(
-                    download_file(
+                let result = self
+                    .download_image(
                         &client,
                         &item.enclosure.url,
                         &cache_path,
                         &name,
                         (total_steps + total_images) as u8,
-                        &mut self.notification_center,
                         notification.clone(),
                     )
-                    .await,
-                )?;
+                    .await;
+                self.notify_err(result, ImageService::Nasa).await?;
             }
             image_list.images[i].url = file_name.to_string_lossy().to_string();
             image_list.send_signal_to_dart();
             notification.body = format!("Processed {date}");
             notification.percent =
                 ((i + total_steps) as f32) / ((total_images + total_steps) as f32);
-            check_err(check_err(
-                self.notification_center
-                    .send(NotificationUpdate(notification.clone()))
-                    .await
-                    .map_err(|e| anyhow!("Failed to send notification update: {e:?}")),
-            )?)?;
+            self.check_notify_send_error(notification.clone()).await?;
         }
 
         // dispose outdated cached images
         if let Some(last_day) = last_day {
-            for entry in (check_err(
-                fs::read_dir(&app_cache_dir)
-                    .with_context(|| "Failed to read cache folder contents."),
-            )?)
-            .flatten()
+            for entry in self
+                .notify_err(
+                    fs::read_dir(&app_cache_dir)
+                        .with_context(|| "Failed to read cache folder contents."),
+                    ImageService::Nasa,
+                )
+                .await?
+                .flatten()
             {
                 if !entry.path().is_file() {
                     continue;
                 }
                 let date = NaiveDate::parse_from_str(
-                    &check_err(
-                        entry
-                            .path()
-                            .file_stem()
-                            .ok_or(anyhow!("Failed to get filename for cached NASA image")),
-                    )?
-                    .to_string_lossy(),
+                    &self
+                        .notify_err(
+                            entry
+                                .path()
+                                .file_stem()
+                                .ok_or(anyhow!("Failed to get filename for cached NASA image")),
+                            ImageService::Nasa,
+                        )
+                        .await?
+                        .to_string_lossy(),
                     DATE_FILE_FMT,
                 )?;
                 if date < last_day
                     || (date != now
-                        && check_err(
-                            entry
-                                .path()
-                                .extension()
-                                .ok_or(anyhow!("Failed to get cached file's extension")),
-                        )?
-                        .to_string_lossy()
-                        .ends_with("xml"))
+                        && self
+                            .notify_err(
+                                entry
+                                    .path()
+                                    .extension()
+                                    .ok_or(anyhow!("Failed to get cached file's extension")),
+                                ImageService::Nasa,
+                            )
+                            .await?
+                            .to_string_lossy()
+                            .ends_with("xml"))
                 {
                     debug_print!("Deleting outdated cache file {:?}", entry.path());
-                    check_err(
+                    self.notify_err(
                         fs::remove_file(entry.path())
                             .with_context(|| "Failed to delete outdated NASA cache file"),
-                    )?;
+                        ImageService::Nasa,
+                    )
+                    .await?;
                 }
             }
         }
@@ -219,13 +232,7 @@ impl Handler<NasaRefresh> for ImageServiceActor {
         notification.percent = 1.0;
         notification.body = "Cache updated".to_string();
         notification.status_message = condense_duration(elapsed);
-        check_err(check_err(
-            self.notification_center
-                .send(NotificationUpdate(notification))
-                .await
-                .map_err(|e| anyhow!("Failed to send notification update: {e:?}")),
-        )?)?;
-        Ok(())
+        self.check_notify_send_error(notification).await
     }
 }
 
