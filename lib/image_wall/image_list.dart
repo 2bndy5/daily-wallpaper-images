@@ -94,7 +94,7 @@ mixin ImageListPage {
         spacing: 20.0,
         children: [
           CircularProgressIndicator(),
-          Text("Refreshing $imageService's Daily Images")
+          Text("Refreshing $imageService")
         ],
       ),
     );

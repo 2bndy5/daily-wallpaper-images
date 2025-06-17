@@ -7,19 +7,19 @@
 
 use std::fmt::Debug;
 use std::path::Path;
-use std::{fs, path::PathBuf, time::Instant};
+use std::{fs, time::Instant};
 
 use crate::common::{check_err, condense_duration};
 use crate::notification_center::{NotificationActor, NotificationUpdate};
+use crate::services::actor::ImageServiceActor;
 use crate::services::download_file;
 use crate::signals::{
-    DailyImage, NotificationAlert, NotificationSeverity, SpotlightImageList, SpotlightRefresh,
-    SpotlightReset,
+    DailyImage, ImageList, ImageService, NotificationAlert, NotificationSeverity,
 };
 use anyhow::{anyhow, Context, Result};
-use messages::prelude::{async_trait, Actor, Address, Context as MsgContext, Handler};
+use messages::prelude::{async_trait, Address, Context as MsgContext, Handler};
 use reqwest::ClientBuilder;
-use rinf::{debug_print, DartSignal, RustSignal};
+use rinf::{debug_print, RustSignal};
 use serde::Deserialize;
 use tokio::spawn;
 
@@ -63,85 +63,29 @@ pub struct SpotlightItem {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct SpotlightBathInfo {
+pub struct SpotlightBatchInfo {
     items: Vec<SpotlightItem>,
 }
 #[derive(Debug, Deserialize)]
 pub struct SpotlightImages {
     #[serde(rename(deserialize = "batchrsp"))]
-    pub batch_response: SpotlightBathInfo,
+    pub batch_response: SpotlightBatchInfo,
 }
 
-// The type for telling the actor to get new images.
-pub struct SpotlightRefreshMsg;
+/// The type for telling the actor to get new images.
+pub struct SpotlightRefresh;
 
-// The type for telling the actor to set the cache.
-pub struct SpotlightResetMsg;
-
-// The actor that holds the counter state and handles messages.
-pub struct SpotlightActor {
-    app_cache_dir: PathBuf,
-    notification_center: Address<NotificationActor>,
-}
-
-// Implementing the `Actor` trait for `CountingActor`.
-// This defines `CountingActor` as an actor in the async system.
-impl Actor for SpotlightActor {}
-
-impl SpotlightActor {
-    const INFO_FILE: &str = "info.json";
-
-    pub fn new(
-        spotlight_addr: Address<Self>,
-        app_cache_dir: PathBuf,
-        notification_center: Address<NotificationActor>,
-    ) -> Self {
-        spawn(Self::listen_to_refresh_trigger(spotlight_addr.clone()));
-        spawn(Self::listen_to_reset_trigger(spotlight_addr));
-        SpotlightActor {
-            app_cache_dir,
-            notification_center,
-        }
-    }
-
-    async fn listen_to_refresh_trigger(mut spotlight_addr: Address<Self>) {
-        // Spawn an asynchronous task to listen for
-        // button click signals from Dart.
-        let receiver = SpotlightRefresh::get_dart_signal_receiver();
-        // Continuously listen for signals.
-        while let Some(_dart_signal) = receiver.recv().await {
-            debug_print!("refreshing image list from Windows Spotlight");
-            // Send a message to the actor.
-            let _ = spotlight_addr.send(SpotlightRefreshMsg).await;
-        }
-    }
-
-    async fn listen_to_reset_trigger(mut spotlight_addr: Address<Self>) {
-        // Spawn an asynchronous task to listen for
-        // button click signals from Dart.
-        let receiver = SpotlightReset::get_dart_signal_receiver();
-        // Continuously listen for signals.
-        while let Some(_dart_signal) = receiver.recv().await {
-            debug_print!("resetting image list from Windows Spotlight");
-            // send reset message to the actor.
-            let _ = spotlight_addr.send(SpotlightResetMsg).await;
-            // Send refresh message to the actor.
-            let _ = spotlight_addr.send(SpotlightRefreshMsg).await;
-        }
-    }
-}
+/// The type for telling the actor to reset the cache.
+pub struct SpotlightReset;
 
 #[async_trait]
-impl Handler<SpotlightResetMsg> for SpotlightActor {
+impl Handler<SpotlightReset> for ImageServiceActor {
     type Result = Result<()>;
     // Handles messages received by the actor.
-    async fn handle(
-        &mut self,
-        _msg: SpotlightResetMsg,
-        _context: &MsgContext<Self>,
-    ) -> Self::Result {
+    async fn handle(&mut self, _msg: SpotlightReset, _context: &MsgContext<Self>) -> Self::Result {
         debug_print!("Resetting Windows Spotlight images");
-        let cached_metadata = self.app_cache_dir.join(Path::new(Self::INFO_FILE));
+        let app_cache_dir = self.app_cache_dir.join(ImageService::Spotlight.as_str());
+        let cached_metadata = app_cache_dir.join(Path::new(Self::INFO_FILE));
         if cached_metadata.exists() {
             fs::remove_file(cached_metadata)
                 .with_context(|| "Failed to delete cached info about Windows Spotlight images.")?;
@@ -151,12 +95,12 @@ impl Handler<SpotlightResetMsg> for SpotlightActor {
 }
 
 #[async_trait]
-impl Handler<SpotlightRefreshMsg> for SpotlightActor {
+impl Handler<SpotlightRefresh> for ImageServiceActor {
     type Result = Result<()>;
     // Handles messages received by the actor.
     async fn handle(
         &mut self,
-        _msg: SpotlightRefreshMsg,
+        _msg: SpotlightRefresh,
         _context: &MsgContext<Self>,
     ) -> Self::Result {
         let debug_title = "Windows Spotlight images";
@@ -179,7 +123,8 @@ impl Handler<SpotlightRefreshMsg> for SpotlightActor {
 
         let client = ClientBuilder::new().build()?;
 
-        let cached_metadata = self.app_cache_dir.join(Path::new(Self::INFO_FILE));
+        let app_cache_dir = self.app_cache_dir.join(ImageService::Spotlight.as_str());
+        let cached_metadata = app_cache_dir.join(Path::new(Self::INFO_FILE));
         let text = if cached_metadata.exists() {
             check_err(
                 fs::read_to_string(&cached_metadata)
@@ -220,7 +165,10 @@ impl Handler<SpotlightRefreshMsg> for SpotlightActor {
         .batch_response
         .items;
         let total_images = items.len();
-        let mut image_list = SpotlightImageList { images: vec![] };
+        let mut image_list = ImageList {
+            images: vec![],
+            service: ImageService::Spotlight,
+        };
         let mut new_item_ids = vec![];
         for item in items {
             let content = serde_json::from_str::<SpotlightItemContent>(item.item.trim_matches('`'))
@@ -234,7 +182,7 @@ impl Handler<SpotlightRefreshMsg> for SpotlightActor {
         }
 
         for (i, (id, url)) in new_item_ids.iter().enumerate() {
-            let file_name = self.app_cache_dir.join(id);
+            let file_name = app_cache_dir.join(id);
             let cache_path = file_name.as_os_str().to_string_lossy().to_string();
             if !file_name.exists() {
                 check_err(
@@ -267,8 +215,7 @@ impl Handler<SpotlightRefreshMsg> for SpotlightActor {
         let new_ids = new_item_ids.iter().map(|i| i.0.clone()).collect::<Vec<_>>();
         // dispose outdated cached images
         for entry in (check_err(
-            fs::read_dir(&self.app_cache_dir)
-                .with_context(|| "Failed to read cache folder contents."),
+            fs::read_dir(&app_cache_dir).with_context(|| "Failed to read cache folder contents."),
         )?)
         .flatten()
         {
@@ -330,7 +277,7 @@ pub async fn create_actors(notification_center: Address<NotificationActor>) -> R
     }
 
     // Spawn actors.
-    let actor = SpotlightActor::new(spotlight_addr, app_cache_dir, notification_center);
+    let actor = ImageServiceActor::new(spotlight_addr, app_cache_dir, notification_center);
     spawn(spotlight_context.run(actor));
     Ok(())
 }

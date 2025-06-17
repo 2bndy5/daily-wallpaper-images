@@ -1,7 +1,5 @@
-import 'package:daily_wallpaper_images/bing.dart';
-import 'package:daily_wallpaper_images/nasa.dart';
+import 'package:daily_wallpaper_images/image_wall/image_service.dart';
 import 'package:daily_wallpaper_images/notifications.dart';
-import 'package:daily_wallpaper_images/spotlight.dart';
 import 'package:daily_wallpaper_images/src/bindings/bindings.dart';
 import 'package:flutter/material.dart';
 import 'package:rinf/rinf.dart';
@@ -45,16 +43,11 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  int _selectedSource = 0;
-  final services = [
-    "Bing Image of the Day",
-    "NASA Image of the Day",
-    "Windows Spotlight"
-  ];
+  ImageService _selectedSource = ImageService.bing;
 
   void _onItemTapped(int index) {
     setState(() {
-      _selectedSource = index;
+      _selectedSource = ImageService.values[index];
     });
   }
 
@@ -62,9 +55,9 @@ class _MyHomePageState extends State<MyHomePage> {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     var drawerDestinations = <Widget>[];
-    for (final (i, item) in services.indexed) {
+    for (final (i, item) in ImageService.values.indexed) {
       drawerDestinations.add(ListTile(
-        title: Text(item),
+        title: Text(getServiceName(item)),
         onTap: () {
           _onItemTapped(i);
           Navigator.pop(context);
@@ -76,7 +69,7 @@ class _MyHomePageState extends State<MyHomePage> {
       appBar: AppBar(
         backgroundColor: colorScheme.primaryContainer,
         foregroundColor: colorScheme.onPrimaryContainer,
-        title: Text(services[_selectedSource]),
+        title: Text(getServiceName(_selectedSource)),
         leading: Builder(
           builder: (context) {
             return IconButton(
@@ -129,11 +122,11 @@ class _MyHomePageState extends State<MyHomePage> {
               drawerDestinations,
         ),
       ),
-      body: [BingPage(), NasaPage(), SpotlightPage()][_selectedSource],
-      floatingActionButton: _selectedSource == 2
+      body: ImageWall(service: _selectedSource),
+      floatingActionButton: _selectedSource == ImageService.spotlight
           ? FloatingActionButton.small(
               onPressed: () {
-                SpotlightReset().sendSignalToRust();
+                Reset(value: ImageService.spotlight).sendSignalToRust();
               },
               shape: CircleBorder(),
               tooltip: "I'm feeling lucky",

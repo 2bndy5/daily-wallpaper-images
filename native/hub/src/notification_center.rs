@@ -2,10 +2,7 @@ use std::collections::HashMap;
 
 #[cfg(not(target_os = "android"))]
 use crate::set_wallpaper;
-use crate::{
-    services::{bing, nasa, spotlight},
-    signals::notifications::*,
-};
+use crate::{services, signals::notifications::*};
 use anyhow::Result;
 use chrono::{SecondsFormat, Utc};
 use messages::prelude::{async_trait, Actor, Address, Context as MsgContext, Handler};
@@ -188,9 +185,7 @@ pub async fn create_actors() -> Result<()> {
     spawn(notification_context.run(actor));
 
     // now spawn sub tasks that can send messages to this task
-    spawn(bing::create_actors(notification_addr.clone()));
-    spawn(nasa::create_actors(notification_addr.clone()));
-    spawn(spotlight::create_actors(notification_addr.clone()));
+    spawn(services::create_actors(notification_addr.clone()));
     #[cfg(not(target_os = "android"))]
     {
         spawn(set_wallpaper::create_actors(notification_addr.clone()));

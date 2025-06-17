@@ -6,23 +6,23 @@
 //! instead, share memory by communicating.
 
 use std::fmt::Debug;
+use std::fs;
 use std::path::Path;
 use std::time::Instant;
-use std::{fs, path::PathBuf};
 
 use crate::common::{check_err, condense_duration, DATE_FILE_FMT};
-use crate::notification_center::{NotificationActor, NotificationUpdate};
+use crate::notification_center::NotificationUpdate;
+use crate::services::actor::ImageServiceActor;
 use crate::services::download_file;
 use crate::signals::{
-    BingImageList, BingRefresh, DailyImage, NotificationAlert, NotificationSeverity,
+    DailyImage, ImageList, ImageService, NotificationAlert, NotificationSeverity,
 };
 use anyhow::{anyhow, Context, Result};
 use chrono::{Local, NaiveDate};
-use messages::prelude::{async_trait, Actor, Address, Context as MsgContext, Handler};
+use messages::prelude::{async_trait, Context as MsgContext, Handler};
 use reqwest::ClientBuilder;
-use rinf::{debug_print, DartSignal, RustSignal};
+use rinf::{debug_print, RustSignal};
 use serde::Deserialize;
-use tokio::spawn;
 
 #[derive(Debug, Deserialize)]
 pub struct BingImage {
@@ -37,44 +37,8 @@ pub struct BingImages {
     images: Vec<BingImage>,
 }
 
-// The type for instigating the actor.
-struct BingRefreshMsg;
-
-// The actor that holds the counter state and handles messages.
-pub struct BingActor {
-    app_cache_dir: PathBuf,
-    notification_center: Address<NotificationActor>,
-}
-
-// Implementing the `Actor` trait for `CountingActor`.
-// This defines `CountingActor` as an actor in the async system.
-impl Actor for BingActor {}
-
-impl BingActor {
-    pub fn new(
-        bing_addr: Address<Self>,
-        app_cache_dir: PathBuf,
-        notification_center: Address<NotificationActor>,
-    ) -> Self {
-        spawn(Self::listen_to_refresh_trigger(bing_addr));
-        BingActor {
-            app_cache_dir,
-            notification_center,
-        }
-    }
-
-    async fn listen_to_refresh_trigger(mut bing_addr: Address<Self>) {
-        // Spawn an asynchronous task to listen for
-        // button click signals from Dart.
-        let receiver = BingRefresh::get_dart_signal_receiver();
-        // Continuously listen for signals.
-        while let Some(_dart_signal) = receiver.recv().await {
-            debug_print!("refreshing image list from Bing");
-            // Send a message to the actor.
-            let _ = bing_addr.send(BingRefreshMsg).await;
-        }
-    }
-}
+// The message types implemented for the actor.
+pub struct BingRefresh;
 
 fn parse_date(date: &str) -> Result<NaiveDate> {
     NaiveDate::parse_from_str(date, "%Y%m%d")
@@ -82,10 +46,10 @@ fn parse_date(date: &str) -> Result<NaiveDate> {
 }
 
 #[async_trait]
-impl Handler<BingRefreshMsg> for BingActor {
+impl Handler<BingRefresh> for ImageServiceActor {
     type Result = Result<()>;
     // Handles messages received by the actor.
-    async fn handle(&mut self, _msg: BingRefreshMsg, _context: &MsgContext<Self>) -> Self::Result {
+    async fn handle(&mut self, _msg: BingRefresh, _context: &MsgContext<Self>) -> Self::Result {
         let debug_title = "Bing images";
         debug_print!("{debug_title}");
         let mut notification = NotificationAlert {
@@ -103,7 +67,8 @@ impl Handler<BingRefreshMsg> for BingActor {
 
         let now = Local::now().date_naive();
         let today = format!("{}.json", now.format(DATE_FILE_FMT));
-        let cached_metadata = self.app_cache_dir.join(Path::new(&today));
+        let app_cache_dir = self.app_cache_dir.join(ImageService::Bing.as_str());
+        let cached_metadata = app_cache_dir.join(Path::new(&today));
         let text = if cached_metadata.exists() {
             check_err(
                 fs::read_to_string(&cached_metadata)
@@ -143,7 +108,8 @@ impl Handler<BingRefreshMsg> for BingActor {
                 .with_context(|| "Failed to deserialize Bing images' response payload."),
         )?
         .images;
-        let mut image_list = BingImageList {
+        let mut image_list = ImageList {
+            service: ImageService::Bing,
             images: images
                 .iter()
                 .map(|i| DailyImage {
@@ -163,7 +129,7 @@ impl Handler<BingRefreshMsg> for BingActor {
             let date = last_day.unwrap().format(DATE_FILE_FMT);
 
             let name = format!("{date}.jpg");
-            let file_name = self.app_cache_dir.join(&name);
+            let file_name = app_cache_dir.join(&name);
             let cache_path = file_name.to_string_lossy().to_string();
             if !file_name.exists() {
                 check_err(
@@ -195,7 +161,7 @@ impl Handler<BingRefreshMsg> for BingActor {
         // dispose outdated cached images
         if let Some(last_day) = last_day {
             for entry in (check_err(
-                fs::read_dir(&self.app_cache_dir)
+                fs::read_dir(&app_cache_dir)
                     .with_context(|| "Failed to read cache folder contents."),
             )?)
             .flatten()
@@ -245,24 +211,4 @@ impl Handler<BingRefreshMsg> for BingActor {
 
         Ok(())
     }
-}
-
-// Creates and spawns the actors in the async system.
-pub async fn create_actors(notification_center: Address<NotificationActor>) -> Result<()> {
-    // Create actor contexts.
-    let bing_context = MsgContext::new();
-    let bing_addr = bing_context.address();
-
-    let cache_dir = dirs::cache_dir().ok_or(anyhow!(
-        "Failed to detect system cache folder; Is this running on a desktop?"
-    ))?;
-    let app_cache_dir = cache_dir.join("Daily-Images").join("Bing");
-    if !app_cache_dir.exists() {
-        fs::create_dir_all(&app_cache_dir)?;
-    }
-
-    // Spawn actors.
-    let actor = BingActor::new(bing_addr, app_cache_dir, notification_center);
-    spawn(bing_context.run(actor));
-    Ok(())
 }

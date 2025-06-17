@@ -1,10 +1,11 @@
-use std::{fs::File, io::Write, time::Duration};
+use std::{fs::File, io::Write};
 
 use anyhow::{anyhow, Context, Result};
 use futures_util::StreamExt;
 use messages::prelude::Address;
 use reqwest::{header::CONTENT_LENGTH, Client};
 use rinf::debug_print;
+use size::Size;
 
 use crate::{
     common::check_err,
@@ -12,11 +13,13 @@ use crate::{
     signals::NotificationAlert,
 };
 
+mod actor;
 pub mod bing;
 pub mod nasa;
 pub mod spotlight;
+pub use actor::{create_actors, ImageServiceActor};
 
-pub async fn download_file(
+async fn download_file(
     client: &Client,
     url: &str,
     cache_path: &str,
@@ -25,11 +28,7 @@ pub async fn download_file(
     notification_center: &mut Address<NotificationActor>,
     mut notification: NotificationAlert,
 ) -> Result<()> {
-    let response = client
-        .get(url)
-        .timeout(Duration::from_secs(5))
-        .send()
-        .await?;
+    let response = client.get(url).send().await?;
     let total_size = if let Some(v) = response.headers().get(CONTENT_LENGTH) {
         let as_str = v.to_str()?;
         Some(as_str.to_string().parse::<usize>()?)
@@ -41,7 +40,7 @@ pub async fn download_file(
     let completed_steps = notification.percent * (total_steps as f32);
     let mut buf: Vec<u8> = Vec::new();
     let mut downloaded = 0;
-    notification.body = format!("Downloading {display_id}");
+    let status = format!("Downloading {display_id}");
     let mut stream = response.bytes_stream();
     while let Some(chunk) = stream.next().await {
         let bytes =
@@ -52,6 +51,12 @@ pub async fn download_file(
             notification.percent = (completed_steps + ((downloaded as f32) / (total_size as f32)))
                 / (total_steps as f32);
         }
+        notification.body = format!(
+            "{status} ({})",
+            Size::from_bytes(downloaded)
+                .format()
+                .with_base(size::Base::Base10)
+        );
         check_err(check_err(
             notification_center
                 .send(NotificationUpdate(notification.clone()))

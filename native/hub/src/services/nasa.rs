@@ -5,65 +5,23 @@
 //! To build a solid app, do not communicate by sharing memory;
 //! instead, share memory by communicating.
 
-use std::{
-    fs,
-    path::{Path, PathBuf},
-    time::Instant,
-};
+use std::{fs, path::Path, time::Instant};
 
 use crate::{
     common::{check_err, condense_duration, DATE_FILE_FMT},
-    services::download_file,
-    signals::{DailyImage, NasaRefresh, NotificationAlert, NotificationSeverity},
+    services::{actor::ImageServiceActor, download_file},
+    signals::{DailyImage, ImageService, NotificationAlert, NotificationSeverity},
 };
-use crate::{
-    notification_center::{NotificationActor, NotificationUpdate},
-    signals::NasaImageList,
-};
+use crate::{notification_center::NotificationUpdate, signals::ImageList};
 use anyhow::{anyhow, Context, Result};
 use chrono::{Local, NaiveDate};
-use messages::prelude::{async_trait, Actor, Address, Context as MsgContext, Handler};
+use messages::prelude::{async_trait, Context as MsgContext, Handler};
 use reqwest::{ClientBuilder, Url};
-use rinf::{debug_print, DartSignal, RustSignal};
+use rinf::{debug_print, RustSignal};
 use serde::Deserialize;
-use tokio::spawn;
 
-// The type for instigating the actor.
-struct NasaRefreshMsg;
-
-// The actor that holds the counter state and handles messages.
-pub struct NasaActor {
-    app_cache_dir: PathBuf,
-    notification_center: Address<NotificationActor>,
-}
-
-impl Actor for NasaActor {}
-
-impl NasaActor {
-    pub fn new(
-        nasa_addr: Address<Self>,
-        app_cache_dir: PathBuf,
-        notification_center: Address<NotificationActor>,
-    ) -> Self {
-        spawn(Self::listen_to_refresh_trigger(nasa_addr));
-        NasaActor {
-            app_cache_dir,
-            notification_center,
-        }
-    }
-
-    async fn listen_to_refresh_trigger(mut nasa_addr: Address<Self>) {
-        // Spawn an asynchronous task to listen for
-        // button click signals from Dart.
-        let receiver = NasaRefresh::get_dart_signal_receiver();
-        // Continuously listen for signals.
-        while let Some(_dart_signal) = receiver.recv().await {
-            debug_print!("refreshing image list from NASA");
-            // Send a message to the actor.
-            let _ = nasa_addr.send(NasaRefreshMsg).await;
-        }
-    }
-}
+// The message types implemented for the actor.
+pub struct NasaRefresh;
 
 #[derive(Debug, Deserialize)]
 pub struct NasaFeed {
@@ -95,10 +53,10 @@ fn parse_date(date: &str) -> Result<NaiveDate> {
 }
 
 #[async_trait]
-impl Handler<NasaRefreshMsg> for NasaActor {
+impl Handler<NasaRefresh> for ImageServiceActor {
     type Result = Result<()>;
     // Handles messages received by the actor.
-    async fn handle(&mut self, _msg: NasaRefreshMsg, _context: &MsgContext<Self>) -> Self::Result {
+    async fn handle(&mut self, _msg: NasaRefresh, _context: &MsgContext<Self>) -> Self::Result {
         let debug_title = "NASA images";
         debug_print!("{debug_title}");
         let mut notification = NotificationAlert {
@@ -121,7 +79,9 @@ impl Handler<NasaRefreshMsg> for NasaActor {
 
         let now = Local::now().date_naive();
         let today = format!("{}.xml", now.format(DATE_FILE_FMT));
-        let cached_metadata = self.app_cache_dir.join(Path::new(&today));
+
+        let app_cache_dir = self.app_cache_dir.join(ImageService::Nasa.as_str());
+        let cached_metadata = app_cache_dir.join(Path::new(&today));
         let text = if cached_metadata.exists() {
             fs::read_to_string(&cached_metadata)
                 .with_context(|| "Failed to read cached NASA metadata")?
@@ -160,7 +120,8 @@ impl Handler<NasaRefreshMsg> for NasaActor {
         )?
         .channel
         .item;
-        let mut image_list = NasaImageList {
+        let mut image_list = ImageList {
+            service: ImageService::Nasa,
             images: images
                 .iter()
                 .map(|i| DailyImage {
@@ -185,7 +146,7 @@ impl Handler<NasaRefreshMsg> for NasaActor {
                     .ok_or(anyhow!("Failed to find image MIME type from NASA URL."))?
                     .to_string_lossy()
             );
-            let file_name = self.app_cache_dir.join(&name);
+            let file_name = app_cache_dir.join(&name);
             let cache_path = file_name.to_string_lossy().to_string();
             if !file_name.exists() {
                 check_err(
@@ -217,7 +178,7 @@ impl Handler<NasaRefreshMsg> for NasaActor {
         // dispose outdated cached images
         if let Some(last_day) = last_day {
             for entry in (check_err(
-                fs::read_dir(&self.app_cache_dir)
+                fs::read_dir(&app_cache_dir)
                     .with_context(|| "Failed to read cache folder contents."),
             )?)
             .flatten()
@@ -266,26 +227,6 @@ impl Handler<NasaRefreshMsg> for NasaActor {
         )?)?;
         Ok(())
     }
-}
-
-// Creates and spawns the actors in the async system.
-pub async fn create_actors(notification_center: Address<NotificationActor>) -> Result<()> {
-    // Create actor contexts.
-    let nasa_context = MsgContext::new();
-    let nasa_addr = nasa_context.address();
-
-    let cache_dir = dirs::cache_dir().ok_or(anyhow!(
-        "Failed to detect system cache folder; Is this running on a desktop?"
-    ))?;
-    let app_cache_dir = cache_dir.join("Daily-Images").join("NASA");
-    if !app_cache_dir.exists() {
-        fs::create_dir_all(&app_cache_dir)?;
-    }
-
-    // Spawn actors.
-    let actor = NasaActor::new(nasa_addr, app_cache_dir, notification_center);
-    spawn(nasa_context.run(actor));
-    Ok(())
 }
 
 #[cfg(test)]
