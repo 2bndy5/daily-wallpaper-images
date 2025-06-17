@@ -84,11 +84,15 @@ impl Handler<NotificationUpdate> for NotificationActor {
     ) -> Self::Result {
         let mut found = false;
         let mut old_key = None;
+        let mut just_finished = Vec::with_capacity(1);
         for (key, val) in self.notifications.0.iter_mut() {
             if val.title == msg.0.title {
                 if val.percent >= 1.0 {
                     old_key = Some(key.to_owned());
                     break;
+                }
+                if msg.0.percent >= 1.0 {
+                    just_finished.push(key.to_owned());
                 }
                 val.update(msg.0.clone());
                 found = true;
@@ -103,11 +107,15 @@ impl Handler<NotificationUpdate> for NotificationActor {
         if !found {
             debug_print!("Adding new notification \"{}\"", msg.0.title);
             let timestamp = Utc::now().to_rfc3339_opts(SecondsFormat::Millis, false);
+            if msg.0.percent >= 1.0 {
+                just_finished.push(timestamp.clone());
+            }
             self.notifications.0.insert(timestamp, msg.0);
         }
         NotificationResults {
             notifications: self.notifications.0.clone(),
             pending: self.notifications.get_pending(),
+            just_finished,
         }
         .send_signal_to_dart();
         Ok(())
@@ -126,6 +134,7 @@ impl Handler<NotificationRefresh> for NotificationActor {
         NotificationResults {
             notifications: self.notifications.0.clone(),
             pending: self.notifications.get_pending(),
+            ..Default::default()
         }
         .send_signal_to_dart();
         debug_print!("Done refreshing notifications");
@@ -147,6 +156,7 @@ impl Handler<NotificationDismiss> for NotificationActor {
             NotificationResults {
                 notifications: self.notifications.0.clone(),
                 pending: self.notifications.get_pending(),
+                ..Default::default()
             }
             .send_signal_to_dart();
         }
@@ -168,6 +178,7 @@ impl Handler<NotificationDismissAll> for NotificationActor {
         NotificationResults {
             notifications: self.notifications.0.clone(),
             pending: Vec::new(),
+            ..Default::default()
         }
         .send_signal_to_dart();
         Ok(())

@@ -162,22 +162,45 @@ class NotificationsMonitor extends StatelessWidget {
       stream: NotificationResults.rustSignalStream,
       builder: (context, snapshot) {
         List<String>? pending = snapshot.data?.message.pending;
+        List<String>? justFinished = snapshot.data?.message.justFinished;
         Map<String, NotificationAlert>? data =
             snapshot.data?.message.notifications;
-        final popUp = pending != null && pending.isNotEmpty && snapshot.hasData
+        List<Widget> children = [];
+        if (snapshot.hasData) {
+          if (justFinished!.isNotEmpty) {
+            children.addAll(
+              List.from(
+                justFinished.map(
+                  (key) => NotificationBubble(
+                    data![key]!,
+                    onTap: () => NotificationDismiss(
+                      timestamp: key,
+                    ).sendSignalToRust(),
+                  ),
+                ),
+              ),
+            );
+          }
+          if (pending!.isNotEmpty) {
+            children.addAll(
+              List.from(
+                pending.map(
+                  (entry) => NotificationBubble(
+                    data![entry]!,
+                    onTap: () => NotificationDismiss(
+                      timestamp: entry,
+                    ).sendSignalToRust(),
+                  ),
+                ),
+              ),
+            );
+          }
+        }
+        final popUp = children.isNotEmpty
             ? SizedBox(
                 height: 80,
                 child: ListView(
-                  children: List.from(
-                    pending.map(
-                      (entry) => NotificationBubble(
-                        data![entry]!,
-                        onTap: () => NotificationDismiss(
-                          timestamp: entry,
-                        ).sendSignalToRust(),
-                      ),
-                    ),
-                  ),
+                  children: children,
                 ),
               )
             : Container();

@@ -14,10 +14,11 @@ pub struct NotificationDismiss {
 #[derive(Debug, DartSignal, Deserialize)]
 pub struct NotificationDismissAll;
 
-#[derive(Debug, RustSignal, Serialize)]
+#[derive(Debug, RustSignal, Serialize, Default)]
 pub struct NotificationResults {
     pub notifications: HashMap<String, NotificationAlert>,
     pub pending: Vec<String>,
+    pub just_finished: Vec<String>,
 }
 
 #[derive(Debug, SignalPiece, Deserialize, Serialize, Clone)]
