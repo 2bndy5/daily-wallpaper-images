@@ -153,9 +153,14 @@ class NotificationCenter extends StatelessWidget {
   }
 }
 
-class NotificationsMonitor extends StatelessWidget {
+class NotificationsMonitor extends StatefulWidget {
   const NotificationsMonitor({super.key});
 
+  @override
+  State<NotificationsMonitor> createState() => _NotificationsMonitorState();
+}
+
+class _NotificationsMonitorState extends State<NotificationsMonitor> {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder(
@@ -197,11 +202,9 @@ class NotificationsMonitor extends StatelessWidget {
           }
         }
         final popUp = children.isNotEmpty
-            ? SizedBox(
-                height: 80,
-                child: ListView(
-                  children: children,
-                ),
+            ? ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: 500, maxHeight: 80),
+                child: ListView(children: children),
               )
             : Container();
         return popUp;

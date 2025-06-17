@@ -105,7 +105,7 @@ mixin ImageListPage {
 
     return Column(
       children: [
-        NotificationsMonitor(),
+        Align(alignment: Alignment.centerRight, child: NotificationsMonitor()),
         Expanded(
           child: GridView.extent(
             padding: EdgeInsets.all(10.0),
