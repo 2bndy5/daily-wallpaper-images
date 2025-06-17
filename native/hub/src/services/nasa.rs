@@ -5,8 +5,10 @@
 //! To build a solid app, do not communicate by sharing memory;
 //! instead, share memory by communicating.
 
-use std::time::Duration;
-use std::{fs, path::Path, time::Instant};
+use std::{
+    path::Path,
+    time::{Duration, Instant},
+};
 
 use crate::common::check_err;
 use crate::signals::ImageList;
@@ -21,6 +23,7 @@ use messages::prelude::{async_trait, Context as MsgContext, Handler};
 use reqwest::{ClientBuilder, Url};
 use rinf::{debug_print, RustSignal};
 use serde::Deserialize;
+use tokio::fs;
 
 // The message types implemented for the actor.
 pub struct NasaRefresh;
@@ -60,7 +63,7 @@ impl Handler<NasaRefresh> for ImageServiceActor {
     // Handles messages received by the actor.
     async fn handle(&mut self, _msg: NasaRefresh, _context: &MsgContext<Self>) -> Self::Result {
         let debug_title = format!("{} images", ImageService::Nasa.as_str());
-        debug_print!("{debug_title}");
+        debug_print!("Getting {debug_title}");
         let mut notification = NotificationAlert {
             title: debug_title.to_string(),
             body: "Checking cache".to_string(),
@@ -81,6 +84,7 @@ impl Handler<NasaRefresh> for ImageServiceActor {
         let cached_metadata = app_cache_dir.join(Path::new(&today));
         let text = if cached_metadata.exists() {
             fs::read_to_string(&cached_metadata)
+                .await
                 .with_context(|| "Failed to read cached NASA metadata")?
         } else {
             notification.body = "Fetching data from NASA".to_string();
@@ -109,6 +113,7 @@ impl Handler<NasaRefresh> for ImageServiceActor {
                 .await?;
             self.notify_err(
                 fs::write(&cached_metadata, &text)
+                    .await
                     .with_context(|| "Failed to write NASA metadata to cache"),
                 ImageService::Nasa,
             )
@@ -179,14 +184,18 @@ impl Handler<NasaRefresh> for ImageServiceActor {
 
         // dispose outdated cached images
         if let Some(last_day) = last_day {
-            for entry in self
+            let mut entries = self
                 .notify_err(
                     fs::read_dir(&app_cache_dir)
+                        .await
                         .with_context(|| "Failed to read cache folder contents."),
                     ImageService::Nasa,
                 )
-                .await?
-                .flatten()
+                .await?;
+            while let Some(entry) = entries
+                .next_entry()
+                .await
+                .with_context(|| "Failed to traverse cache dir")?
             {
                 if !entry.path().is_file() {
                     continue;
@@ -221,6 +230,7 @@ impl Handler<NasaRefresh> for ImageServiceActor {
                     debug_print!("Deleting outdated cache file {:?}", entry.path());
                     self.notify_err(
                         fs::remove_file(entry.path())
+                            .await
                             .with_context(|| "Failed to delete outdated NASA cache file"),
                         ImageService::Nasa,
                     )

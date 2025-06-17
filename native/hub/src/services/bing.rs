@@ -5,10 +5,11 @@
 //! To build a solid app, do not communicate by sharing memory;
 //! instead, share memory by communicating.
 
-use std::fmt::Debug;
-use std::fs;
-use std::path::Path;
-use std::time::Instant;
+use std::{
+    fmt::Debug,
+    path::Path,
+    time::{Duration, Instant},
+};
 
 use crate::common::{check_err, condense_duration, DATE_FILE_FMT};
 use crate::services::actor::ImageServiceActor;
@@ -21,6 +22,7 @@ use messages::prelude::{async_trait, Context as MsgContext, Handler};
 use reqwest::ClientBuilder;
 use rinf::{debug_print, RustSignal};
 use serde::Deserialize;
+use tokio::fs;
 
 #[derive(Debug, Deserialize)]
 pub struct BingImage {
@@ -49,7 +51,7 @@ impl Handler<BingRefresh> for ImageServiceActor {
     // Handles messages received by the actor.
     async fn handle(&mut self, _msg: BingRefresh, _context: &MsgContext<Self>) -> Self::Result {
         let debug_title = format!("{} images", ImageService::Bing.as_str());
-        debug_print!("{debug_title}");
+        debug_print!("Getting {debug_title}");
         let mut notification = NotificationAlert {
             title: debug_title.to_string(),
             body: "Checking cache".to_string(),
@@ -70,6 +72,7 @@ impl Handler<BingRefresh> for ImageServiceActor {
         let text = if cached_metadata.exists() {
             check_err(
                 fs::read_to_string(&cached_metadata)
+                    .await
                     .with_context(|| "Failed to read cached Bing metadata"),
             )?
         } else {
@@ -81,6 +84,7 @@ impl Handler<BingRefresh> for ImageServiceActor {
                 .notify_err(
                     client
                         .get("https://www.bing.com/HPImageArchive.aspx?format=js&idx=0&n=14")
+                        .timeout(Duration::from_secs(15))
                         .send()
                         .await
                         .with_context(|| "Failed to get list of Bing images"),
@@ -98,6 +102,7 @@ impl Handler<BingRefresh> for ImageServiceActor {
                 .await?;
             self.notify_err(
                 fs::write(&cached_metadata, &text)
+                    .await
                     .with_context(|| "Failed to write Bing metadata to cache"),
                 ImageService::Bing,
             )
@@ -158,14 +163,18 @@ impl Handler<BingRefresh> for ImageServiceActor {
 
         // dispose outdated cached images
         if let Some(last_day) = last_day {
-            for entry in self
+            let mut entries = self
                 .notify_err(
                     fs::read_dir(&app_cache_dir)
+                        .await
                         .with_context(|| "Failed to read cache folder contents."),
                     ImageService::Bing,
                 )
-                .await?
-                .flatten()
+                .await?;
+            while let Some(entry) = entries
+                .next_entry()
+                .await
+                .with_context(|| "Failed to traverse cache dir")?
             {
                 if !entry.path().is_file() {
                     continue;
@@ -200,6 +209,7 @@ impl Handler<BingRefresh> for ImageServiceActor {
                     debug_print!("Deleting outdated cache file {:?}", entry.path());
                     self.notify_err(
                         fs::remove_file(entry.path())
+                            .await
                             .with_context(|| "Failed to delete outdated Nasa cache file"),
                         ImageService::Bing,
                     )

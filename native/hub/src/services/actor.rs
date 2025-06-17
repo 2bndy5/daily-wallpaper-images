@@ -79,8 +79,8 @@ impl ImageServiceActor {
         let receiver = Reset::get_dart_signal_receiver();
         // Continuously listen for signals.
         while let Some(dart_signal) = receiver.recv().await {
-            debug_print!("resetting image list from Windows Spotlight");
             let service = dart_signal.message.0;
+            debug_print!("resetting image list from {}", service.as_str());
 
             // Send reset message to the actor.
             if matches!(service, ImageService::Spotlight) {
