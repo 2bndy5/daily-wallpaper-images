@@ -23,6 +23,7 @@ use messages::prelude::{async_trait, Context as MsgContext, Handler};
 use reqwest::{ClientBuilder, Url};
 use rinf::{debug_print, RustSignal};
 use serde::Deserialize;
+use size::Size;
 use tokio::fs;
 
 // The message types implemented for the actor.
@@ -72,11 +73,13 @@ impl Handler<NasaRefresh> for ImageServiceActor {
             status_message: String::new(),
         };
         self.check_notify_send_error(notification.clone()).await?;
+
         let timer = Instant::now();
         let mut total_steps = 1;
 
         let client = ClientBuilder::new().build()?;
 
+        let mut downloaded = 0;
         let now = Local::now().date_naive();
         let today = format!("{}.xml", now.format(DATE_FILE_FMT));
 
@@ -111,6 +114,7 @@ impl Handler<NasaRefresh> for ImageServiceActor {
                     ImageService::Nasa,
                 )
                 .await?;
+            downloaded += text.len();
             self.notify_err(
                 fs::write(&cached_metadata, &text)
                     .await
@@ -145,6 +149,7 @@ impl Handler<NasaRefresh> for ImageServiceActor {
         image_list.send_signal_to_dart();
         let mut last_day = None;
         let total_images = images.len();
+        let mut updated_images = 0;
         for (i, item) in images.into_iter().enumerate() {
             last_day = Some(parse_date(&item.pub_date[5..16])?);
             let date = last_day.unwrap().format(DATE_FILE_FMT);
@@ -162,6 +167,7 @@ impl Handler<NasaRefresh> for ImageServiceActor {
             let file_name = app_cache_dir.join(&name);
             let cache_path = file_name.to_string_lossy().to_string();
             if !file_name.exists() {
+                updated_images += 1;
                 let result = self
                     .download_image(
                         &client,
@@ -172,7 +178,7 @@ impl Handler<NasaRefresh> for ImageServiceActor {
                         notification.clone(),
                     )
                     .await;
-                self.notify_err(result, ImageService::Nasa).await?;
+                downloaded += self.notify_err(result, ImageService::Nasa).await?;
             }
             image_list.images[i].url = file_name.to_string_lossy().to_string();
             image_list.send_signal_to_dart();
@@ -183,6 +189,7 @@ impl Handler<NasaRefresh> for ImageServiceActor {
         }
 
         // dispose outdated cached images
+        let mut removed: u8 = 0;
         if let Some(last_day) = last_day {
             let mut entries = self
                 .notify_err(
@@ -227,6 +234,7 @@ impl Handler<NasaRefresh> for ImageServiceActor {
                             .to_string_lossy()
                             .ends_with("xml"))
                 {
+                    removed += 1;
                     debug_print!("Deleting outdated cache file {:?}", entry.path());
                     self.notify_err(
                         fs::remove_file(entry.path())
@@ -240,7 +248,16 @@ impl Handler<NasaRefresh> for ImageServiceActor {
         }
         let elapsed = timer.elapsed();
         notification.percent = 1.0;
-        notification.body = "Cache updated".to_string();
+        if downloaded > 0 {
+            notification.body = format!(
+                "Cached {updated_images}/{total_images} images\nDownloaded {}. Deleted {removed} files.",
+                Size::from_bytes(downloaded)
+                    .format()
+                    .with_base(size::Base::Base10)
+            );
+        } else {
+            notification.body = "Cache is already updated".to_string();
+        }
         notification.status_message = condense_duration(elapsed);
         self.check_notify_send_error(notification).await
     }

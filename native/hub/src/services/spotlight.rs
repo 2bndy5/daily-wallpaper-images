@@ -19,6 +19,7 @@ use messages::prelude::{async_trait, Context as MsgContext, Handler};
 use reqwest::ClientBuilder;
 use rinf::{debug_print, RustSignal};
 use serde::Deserialize;
+use size::Size;
 use tokio::fs;
 
 #[derive(Debug, Deserialize)]
@@ -117,6 +118,7 @@ impl Handler<SpotlightRefresh> for ImageServiceActor {
 
         let client = ClientBuilder::new().build()?;
 
+        let mut downloaded = 0;
         let app_cache_dir = self.app_cache_dir.join(ImageService::Spotlight.as_str());
         let cached_metadata = app_cache_dir.join(Path::new(Self::INFO_FILE));
         let text = if cached_metadata.exists() {
@@ -152,6 +154,7 @@ impl Handler<SpotlightRefresh> for ImageServiceActor {
                     ImageService::Spotlight,
                 )
                 .await?;
+            downloaded += text.len();
             self.notify_err(
                 fs::write(&cached_metadata, &text)
                     .await
@@ -188,10 +191,12 @@ impl Handler<SpotlightRefresh> for ImageServiceActor {
             image_list.images.push(content.into());
         }
 
+        let mut updated_images: u8 = 0;
         for (i, (id, url)) in new_item_ids.iter().enumerate() {
             let file_name = app_cache_dir.join(id);
             let cache_path = file_name.as_os_str().to_string_lossy().to_string();
             if !file_name.exists() {
+                updated_images += 1;
                 let result = self
                     .download_image(
                         &client,
@@ -202,7 +207,7 @@ impl Handler<SpotlightRefresh> for ImageServiceActor {
                         notification.clone(),
                     )
                     .await;
-                self.notify_err(result, ImageService::Spotlight).await?;
+                downloaded += self.notify_err(result, ImageService::Spotlight).await?;
             }
             image_list.images[i].url = cache_path;
             // The send method is generated from a marked Protobuf message.
@@ -215,6 +220,7 @@ impl Handler<SpotlightRefresh> for ImageServiceActor {
 
         let new_ids = new_item_ids.iter().map(|i| i.0.clone()).collect::<Vec<_>>();
         // dispose outdated cached images
+        let mut removed: u8 = if downloaded > 0 { 1 } else { 0 };
         let mut entries = self
             .notify_err(
                 fs::read_dir(&app_cache_dir)
@@ -253,6 +259,7 @@ impl Handler<SpotlightRefresh> for ImageServiceActor {
                     .to_string_lossy()
                     .to_string(),
             ) {
+                removed += 1;
                 debug_print!("Deleting outdated cache file {:?}", entry.path());
                 self.notify_err(
                     fs::remove_file(entry.path())
@@ -265,7 +272,16 @@ impl Handler<SpotlightRefresh> for ImageServiceActor {
         }
         let elapsed = timer.elapsed();
         notification.percent = 1.0;
-        notification.body = "Cache updated".to_string();
+        if downloaded > 0 {
+            notification.body = format!(
+                "Cached {updated_images}/{total_images} images\nDownloaded {}. Deleted {removed} files.",
+                Size::from_bytes(downloaded)
+                    .format()
+                    .with_base(size::Base::Base10)
+            );
+        } else {
+            notification.body = "Cache is already updated".to_string();
+        }
         notification.status_message = condense_duration(elapsed);
         self.check_notify_send_error(notification).await
     }

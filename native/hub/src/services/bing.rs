@@ -22,6 +22,7 @@ use messages::prelude::{async_trait, Context as MsgContext, Handler};
 use reqwest::ClientBuilder;
 use rinf::{debug_print, RustSignal};
 use serde::Deserialize;
+use size::Size;
 use tokio::fs;
 
 #[derive(Debug, Deserialize)]
@@ -59,7 +60,9 @@ impl Handler<BingRefresh> for ImageServiceActor {
             severity: NotificationSeverity::Info,
             status_message: String::new(),
         };
-        // notification.send_signal_to_dart();
+        self.check_notify_send_error(notification.clone()).await?;
+        let mut downloaded = 0;
+
         let timer = Instant::now();
         let mut total_steps = 1;
 
@@ -100,6 +103,7 @@ impl Handler<BingRefresh> for ImageServiceActor {
                     ImageService::Bing,
                 )
                 .await?;
+            downloaded += text.len();
             self.notify_err(
                 fs::write(&cached_metadata, &text)
                     .await
@@ -133,6 +137,7 @@ impl Handler<BingRefresh> for ImageServiceActor {
         image_list.send_signal_to_dart();
         let mut last_day = None;
         let total_images = images.len();
+        let mut updated_images: u8 = 0;
         for (i, img) in images.into_iter().enumerate() {
             last_day = Some(parse_date(&img.start_date)?);
             let date = last_day.unwrap().format(DATE_FILE_FMT);
@@ -141,6 +146,7 @@ impl Handler<BingRefresh> for ImageServiceActor {
             let file_name = app_cache_dir.join(&name);
             let cache_path = file_name.to_string_lossy().to_string();
             if !file_name.exists() {
+                updated_images += 1;
                 let result = self
                     .download_image(
                         &client,
@@ -151,7 +157,7 @@ impl Handler<BingRefresh> for ImageServiceActor {
                         notification.clone(),
                     )
                     .await;
-                self.notify_err(result, ImageService::Bing).await?;
+                downloaded += self.notify_err(result, ImageService::Bing).await?;
             }
             image_list.images[i].url = file_name.to_string_lossy().to_string();
             image_list.send_signal_to_dart();
@@ -162,6 +168,7 @@ impl Handler<BingRefresh> for ImageServiceActor {
         }
 
         // dispose outdated cached images
+        let mut removed: u8 = 0;
         if let Some(last_day) = last_day {
             let mut entries = self
                 .notify_err(
@@ -206,6 +213,7 @@ impl Handler<BingRefresh> for ImageServiceActor {
                             .to_string_lossy()
                             .ends_with("json"))
                 {
+                    removed += 1;
                     debug_print!("Deleting outdated cache file {:?}", entry.path());
                     self.notify_err(
                         fs::remove_file(entry.path())
@@ -219,7 +227,16 @@ impl Handler<BingRefresh> for ImageServiceActor {
         }
         let elapsed = timer.elapsed();
         notification.percent = 1.0;
-        notification.body = "Cache updated".to_string();
+        if downloaded > 0 {
+            notification.body = format!(
+                "Cached {updated_images}/{total_images} images\nDownloaded {}. Deleted {removed} files.",
+                Size::from_bytes(downloaded)
+                    .format()
+                    .with_base(size::Base::Base10)
+            );
+        } else {
+            notification.body = "Cache is already updated".to_string();
+        }
         notification.status_message = condense_duration(elapsed);
         self.check_notify_send_error(notification).await
     }

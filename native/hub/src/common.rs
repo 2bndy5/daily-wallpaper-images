@@ -13,10 +13,12 @@ pub fn check_err<T>(result: Result<T>) -> Result<T> {
 
 pub fn condense_duration(duration: Duration) -> String {
     let seconds = duration.as_secs();
-    if seconds > 0 {
-        format!("{seconds} s")
-    } else {
+    if seconds == 0 {
         let millis = duration.as_millis();
         format!("{millis} ms")
+    } else if seconds > 60 {
+        format!("{} m", seconds / 60)
+    } else {
+        format!("{seconds} s")
     }
 }

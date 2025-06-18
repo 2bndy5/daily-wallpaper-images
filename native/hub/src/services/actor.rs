@@ -121,7 +121,7 @@ impl ImageServiceActor {
         display_id: &str,
         total_steps: u8,
         mut notification: NotificationAlert,
-    ) -> Result<()> {
+    ) -> Result<usize> {
         let response = client.get(url).send().await?;
         let total_size = if let Some(v) = response.headers().get(CONTENT_LENGTH) {
             let as_str = v.to_str()?;
@@ -166,7 +166,7 @@ impl ImageServiceActor {
             .map_err(|e| anyhow!("Failed to write data to image file {cache_path}: {e:?}"))
             .await,
         )?;
-        Ok(())
+        Ok(total_size.unwrap_or(downloaded))
     }
 
     pub(super) async fn notify_err<T>(
