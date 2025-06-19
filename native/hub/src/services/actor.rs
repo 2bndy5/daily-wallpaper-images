@@ -152,10 +152,10 @@ impl ImageServiceActor {
 
 #[async_trait]
 impl Handler<Refresh> for ImageServiceActor {
-    /// Result of the message processing."]
+    /// Result of the message processing.
     type Result = Result<()>;
 
-    /// Processes a message."]
+    /// Processes a message.
     async fn handle(&mut self, message: Refresh, _context: &MsgContext<Self>) -> Self::Result {
         let service = message.service;
         let service_name = service.as_str();

@@ -1,13 +1,6 @@
-//! The actor model is highly recommended for state management,
-//! as it provides modularity and scalability.
-//! This module demonstrates how to use actors
-//! within the async system in Rust.
-//! To build a solid app, do not communicate by sharing memory;
-//! instead, share memory by communicating.
+//! Any logic that is specific to Windows Spotlight Images service goes here.
 
-use std::fmt::Debug;
-
-use super::actor::ImageServiceActor;
+use super::{actor::ImageServiceActor, UpdateResources};
 use crate::signals::{DailyImage, ImageList, ImageService};
 use anyhow::{Context, Result};
 use rinf::RustSignal;
@@ -66,7 +59,7 @@ pub struct SpotlightImages {
 impl ImageServiceActor {
     pub(super) async fn cache_updates_spotlight(
         &mut self,
-        res: &mut super::UpdateResources,
+        res: &mut UpdateResources,
     ) -> Result<Vec<String>> {
         let items = self
             .notify_err(

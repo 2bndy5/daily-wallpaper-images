@@ -1,13 +1,6 @@
-//! The actor model is highly recommended for state management,
-//! as it provides modularity and scalability.
-//! This module demonstrates how to use actors
-//! within the async system in Rust.
-//! To build a solid app, do not communicate by sharing memory;
-//! instead, share memory by communicating.
+//! Any logic that is specific to Bing Image of the Day service goes here.
 
-use std::fmt::Debug;
-
-use super::{ImageServiceActor, DATE_FILE_FMT};
+use super::{ImageServiceActor, UpdateResources, DATE_FILE_FMT};
 use crate::{
     common::check_err,
     signals::{DailyImage, ImageList, ImageService},
@@ -38,7 +31,7 @@ fn parse_date(date: &str) -> Result<NaiveDate> {
 impl ImageServiceActor {
     pub(super) async fn cache_updates_bing(
         &mut self,
-        res: &mut super::UpdateResources,
+        res: &mut UpdateResources,
     ) -> Result<Vec<String>> {
         let images = self
             .notify_err(
