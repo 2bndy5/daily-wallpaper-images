@@ -56,24 +56,18 @@ class NotificationBubble extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.all(8.0),
-      child: Material(
-        elevation: 1.0,
-        borderRadius: BorderRadius.circular(16.0),
-        surfaceTintColor: Colors.transparent,
-        borderOnForeground: false,
-        child: ListTile(
-          title: Text(alert.title),
-          subtitle: Text(alert.body + (alert.body.contains('\n') ? '' : '\n')),
-          splashColor: tileColor.withAlpha(126),
-          onTap: onTap,
-          contentPadding: EdgeInsets.fromLTRB(16.0, 0, 16.0, 0),
-          tileColor: Theme.of(context).colorScheme.surfaceContainerHigh,
-          shape: RoundedRectangleBorder(
-            side: BorderSide(color: tileColor),
-            borderRadius: BorderRadius.circular(16.0),
-          ),
-          trailing: Column(children: trailing),
+      child: ListTile(
+        title: Text(alert.title),
+        subtitle: Text(alert.body + (alert.body.contains('\n') ? '' : '\n')),
+        splashColor: tileColor.withAlpha(126),
+        onTap: onTap,
+        contentPadding: EdgeInsets.fromLTRB(16.0, 0, 16.0, 0),
+        tileColor: Theme.of(context).colorScheme.surfaceContainerHigh,
+        shape: RoundedRectangleBorder(
+          side: BorderSide(color: tileColor),
+          borderRadius: BorderRadius.circular(16.0),
         ),
+        trailing: Column(children: trailing),
       ),
     );
   }
@@ -212,7 +206,12 @@ class _NotificationsMonitorState extends State<NotificationsMonitor> {
                 constraints: BoxConstraints(
                   maxWidth: Theme.of(context).drawerTheme.width ?? 450,
                 ),
-                child: ListView(shrinkWrap: true, children: children),
+                child: Material(
+                  type: MaterialType.transparency,
+                  elevation: 1.0,
+                  borderOnForeground: false,
+                  child: ListView(shrinkWrap: true, children: children),
+                ),
               )
             : Container();
         return popUp;
