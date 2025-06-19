@@ -6,21 +6,12 @@
 //! instead, share memory by communicating.
 
 use std::fmt::Debug;
-use std::path::Path;
-use std::time::{Duration, Instant};
 
-use crate::common::condense_duration;
-use crate::services::actor::ImageServiceActor;
-use crate::signals::{
-    DailyImage, ImageList, ImageService, NotificationAlert, NotificationSeverity,
-};
-use anyhow::{anyhow, Context, Result};
-use messages::prelude::{async_trait, Context as MsgContext, Handler};
-use reqwest::ClientBuilder;
-use rinf::{debug_print, RustSignal};
+use super::actor::ImageServiceActor;
+use crate::signals::{DailyImage, ImageList, ImageService};
+use anyhow::{Context, Result};
+use rinf::RustSignal;
 use serde::Deserialize;
-use size::Size;
-use tokio::fs;
 
 #[derive(Debug, Deserialize)]
 pub struct SpotlightLandscape {
@@ -65,108 +56,21 @@ pub struct SpotlightItem {
 pub struct SpotlightBatchInfo {
     items: Vec<SpotlightItem>,
 }
+
 #[derive(Debug, Deserialize)]
 pub struct SpotlightImages {
     #[serde(rename(deserialize = "batchrsp"))]
     pub batch_response: SpotlightBatchInfo,
 }
 
-/// The type for telling the actor to get new images.
-pub struct SpotlightRefresh;
-
-/// The type for telling the actor to reset the cache.
-pub struct SpotlightReset;
-
-#[async_trait]
-impl Handler<SpotlightReset> for ImageServiceActor {
-    type Result = Result<()>;
-    // Handles messages received by the actor.
-    async fn handle(&mut self, _msg: SpotlightReset, _context: &MsgContext<Self>) -> Self::Result {
-        debug_print!("Resetting Windows Spotlight images");
-        let app_cache_dir = self.app_cache_dir.join(ImageService::Spotlight.as_str());
-        let cached_metadata = app_cache_dir.join(Path::new(Self::INFO_FILE));
-        if cached_metadata.exists() {
-            fs::remove_file(cached_metadata)
-                .await
-                .with_context(|| "Failed to delete cached info about Windows Spotlight images.")?;
-        }
-        Ok(())
-    }
-}
-
-#[async_trait]
-impl Handler<SpotlightRefresh> for ImageServiceActor {
-    type Result = Result<()>;
-    // Handles messages received by the actor.
-    async fn handle(
+impl ImageServiceActor {
+    pub(super) async fn cache_updates_spotlight(
         &mut self,
-        _msg: SpotlightRefresh,
-        _context: &MsgContext<Self>,
-    ) -> Self::Result {
-        let debug_title = format!("{} images", ImageService::Spotlight.as_str());
-        debug_print!("Getting {debug_title}");
-        let mut notification = NotificationAlert {
-            title: debug_title.to_string(),
-            body: "Checking cache".to_string(),
-            percent: 0.0,
-            severity: NotificationSeverity::Info,
-            status_message: String::new(),
-        };
-        self.check_notify_send_error(notification.clone()).await?;
-        let timer = Instant::now();
-        let mut total_steps = 1;
-
-        let client = ClientBuilder::new().build()?;
-
-        let mut downloaded = 0;
-        let app_cache_dir = self.app_cache_dir.join(ImageService::Spotlight.as_str());
-        let cached_metadata = app_cache_dir.join(Path::new(Self::INFO_FILE));
-        let text = if cached_metadata.exists() {
-            self.notify_err(
-                fs::read_to_string(&cached_metadata)
-                    .await
-                    .with_context(|| "Failed to read cached Windows Spotlight metadata"),
-                ImageService::Spotlight,
-            )
-            .await?
-        } else {
-            notification.body = "Fetching data from Windows Spotlight".to_string();
-            notification.status_message = condense_duration(timer.elapsed());
-            self.check_notify_send_error(notification.clone()).await?;
-            total_steps += 1;
-            let url = "https://fd.api.iris.microsoft.com/v4/api/selection?&placement=88000820&bcnt=4&country=us&locale=en-us&fmt=json";
-            let response = self
-                .notify_err(
-                    client
-                        .get(url)
-                        .timeout(Duration::from_secs(15))
-                        .send()
-                        .await
-                        .with_context(|| "Failed to get list of Windows Spotlight images"),
-                    ImageService::Spotlight,
-                )
-                .await?;
-            let text = self
-                .notify_err(
-                    response.text().await.with_context(|| {
-                        "Failed to get body as text from Windows Spotlight images' response"
-                    }),
-                    ImageService::Spotlight,
-                )
-                .await?;
-            downloaded += text.len();
-            self.notify_err(
-                fs::write(&cached_metadata, &text)
-                    .await
-                    .with_context(|| "Failed to write Windows Spotlight metadata to cache"),
-                ImageService::Spotlight,
-            )
-            .await?;
-            text
-        };
+        res: &mut super::UpdateResources,
+    ) -> Result<Vec<String>> {
         let items = self
             .notify_err(
-                serde_json::from_str::<SpotlightImages>(&text).with_context(|| {
+                serde_json::from_str::<SpotlightImages>(&res.text).with_context(|| {
                     "Failed to deserialize Windows Spotlight images' response payload."
                 }),
                 ImageService::Spotlight,
@@ -174,7 +78,8 @@ impl Handler<SpotlightRefresh> for ImageServiceActor {
             .await?
             .batch_response
             .items;
-        let total_images = items.len();
+        res.total_images = items.len();
+
         let mut image_list = ImageList {
             images: vec![],
             service: ImageService::Spotlight,
@@ -191,98 +96,34 @@ impl Handler<SpotlightRefresh> for ImageServiceActor {
             image_list.images.push(content.into());
         }
 
-        let mut updated_images: u8 = 0;
         for (i, (id, url)) in new_item_ids.iter().enumerate() {
-            let file_name = app_cache_dir.join(id);
+            let file_name = res.app_cache_dir.join(id);
             let cache_path = file_name.as_os_str().to_string_lossy().to_string();
             if !file_name.exists() {
-                updated_images += 1;
+                res.updated_images += 1;
                 let result = self
-                    .download_image(
-                        &client,
+                    .download_file(
+                        &res.client,
                         url,
                         &cache_path,
                         id,
-                        (total_steps + total_images) as u8,
-                        notification.clone(),
+                        (res.total_steps + res.total_images) as u8,
+                        res.notification.clone(),
                     )
                     .await;
-                downloaded += self.notify_err(result, ImageService::Spotlight).await?;
+                res.downloaded += self.notify_err(result, ImageService::Spotlight).await?;
             }
             image_list.images[i].url = cache_path;
             // The send method is generated from a marked Protobuf message.
             image_list.send_signal_to_dart();
-            notification.body = format!("Processed {id}");
-            notification.percent =
-                ((i + total_steps) as f32) / ((total_images + total_steps) as f32);
-            self.check_notify_send_error(notification.clone()).await?;
+            res.notification.body = format!("Processed {id}");
+            res.notification.percent =
+                ((i + res.total_steps) as f32) / ((res.total_images + res.total_steps) as f32);
+            self.check_notify_send_error(res.notification.clone())
+                .await?;
         }
 
         let new_ids = new_item_ids.iter().map(|i| i.0.clone()).collect::<Vec<_>>();
-        // dispose outdated cached images
-        let mut removed: u8 = if downloaded > 0 { 1 } else { 0 };
-        let mut entries = self
-            .notify_err(
-                fs::read_dir(&app_cache_dir)
-                    .await
-                    .with_context(|| "Failed to read cache folder contents."),
-                ImageService::Spotlight,
-            )
-            .await?;
-        while let Some(entry) = entries
-            .next_entry()
-            .await
-            .with_context(|| "Failed to traverse cache dir")?
-        {
-            if !entry.path().is_file() {
-                continue;
-            }
-            if self
-                .notify_err(
-                    entry
-                        .path()
-                        .extension()
-                        .ok_or(anyhow!("Failed to get cached file's extension")),
-                    ImageService::Spotlight,
-                )
-                .await?
-                .to_string_lossy()
-                .ends_with("json")
-            {
-                continue;
-            }
-            if !new_ids.contains(
-                &entry
-                    .path()
-                    .file_name()
-                    .unwrap_or_default()
-                    .to_string_lossy()
-                    .to_string(),
-            ) {
-                removed += 1;
-                debug_print!("Deleting outdated cache file {:?}", entry.path());
-                self.notify_err(
-                    fs::remove_file(entry.path())
-                        .await
-                        .with_context(|| "Failed to delete outdated Nasa cache file"),
-                    ImageService::Spotlight,
-                )
-                .await?;
-            }
-        }
-        let elapsed = timer.elapsed();
-        notification.percent = 1.0;
-        if downloaded > 0 {
-            notification.body = format!(
-                "Cached {updated_images}/{total_images} images\nDownloaded {}. Deleted {removed} files.",
-                Size::from_bytes(downloaded)
-                    .format()
-                    .with_base(size::Base::Base10)
-            );
-        } else {
-            notification.body = "Cache is already updated".to_string();
-        }
-        notification.status_message = condense_duration(elapsed);
-        self.check_notify_send_error(notification).await
+        Ok(new_ids)
     }
 }

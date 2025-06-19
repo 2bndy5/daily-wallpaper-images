@@ -148,7 +148,8 @@ class _MyHomePageState extends State<MyHomePage> {
       floatingActionButton: _selectedSource == ImageService.spotlight
           ? FloatingActionButton.small(
               onPressed: () {
-                Reset(value: ImageService.spotlight).sendSignalToRust();
+                Refresh(service: ImageService.spotlight, reset: true)
+                    .sendSignalToRust();
               },
               shape: CircleBorder(),
               tooltip: "I'm feeling lucky",

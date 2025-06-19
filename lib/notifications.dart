@@ -58,7 +58,7 @@ class NotificationBubble extends StatelessWidget {
       padding: const EdgeInsets.all(8.0),
       child: ListTile(
         title: Text(alert.title),
-        subtitle: Text(alert.body),
+        subtitle: Text(alert.body + (alert.body.contains('\n') ? '' : '\n')),
         splashColor: tileColor.withAlpha(85),
         onTap: onTap,
         contentPadding: EdgeInsets.fromLTRB(16.0, 0, 16.0, 0),

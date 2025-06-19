@@ -19,10 +19,10 @@ class ImageWall extends StatelessWidget with ImageListPage {
 
   @override
   Widget build(BuildContext context) {
-    Refresh(value: service).sendSignalToRust();
+    Refresh(service: service, reset: false).sendSignalToRust();
     return RefreshIndicator(
       onRefresh: () async {
-        Refresh(value: service).sendSignalToRust();
+        Refresh(service: service, reset: false).sendSignalToRust();
         Future.delayed(Duration(seconds: 2));
         Future(() {});
       },
