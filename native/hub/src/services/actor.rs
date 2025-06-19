@@ -157,6 +157,7 @@ impl Handler<Refresh> for ImageServiceActor {
 
     /// Processes a message.
     async fn handle(&mut self, message: Refresh, _context: &MsgContext<Self>) -> Self::Result {
+        // set up output mechanisms (in-app notifications and terminal out)
         let service = message.service;
         let service_name = service.as_str();
         let debug_title = format!("{} images", service_name);
@@ -173,9 +174,9 @@ impl Handler<Refresh> for ImageServiceActor {
         )?;
         self.check_notify_send_error(res.notification.clone())
             .await?;
-
         let timer = Instant::now();
 
+        // get cache state
         let metadata_file_name = get_service_metadata_name(&service);
         let cached_metadata = res.app_cache_dir.join(&metadata_file_name);
 
@@ -186,6 +187,7 @@ impl Handler<Refresh> for ImageServiceActor {
                     .with_context(|| "Failed to read cached metadata"),
             )?
         } else {
+            // update cache metadata
             res.notification.body = format!("Fetching data from {}", service_name);
             res.notification.status_message = condense_duration(timer.elapsed());
             self.check_notify_send_error(res.notification.clone())
@@ -222,6 +224,7 @@ impl Handler<Refresh> for ImageServiceActor {
             text
         };
 
+        // process images per service
         let cached_images = match service {
             ImageService::Bing => self.cache_updates_bing(&mut res).await,
             ImageService::Nasa => self.cache_updates_nasa(&mut res).await,
@@ -267,6 +270,8 @@ impl Handler<Refresh> for ImageServiceActor {
                 .await?;
             }
         }
+
+        // finish up
         let elapsed = timer.elapsed();
         res.notification.percent = 1.0;
         if res.downloaded > 0 {
