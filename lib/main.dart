@@ -1,5 +1,6 @@
 import 'package:daily_wallpaper_images/image_wall/image_service.dart';
-import 'package:daily_wallpaper_images/notifications.dart';
+import 'package:daily_wallpaper_images/notifications/drawer.dart';
+import 'package:daily_wallpaper_images/notifications/bubble.dart';
 import 'package:daily_wallpaper_images/src/bindings/bindings.dart';
 import 'package:flutter/material.dart';
 import 'package:rinf/rinf.dart';

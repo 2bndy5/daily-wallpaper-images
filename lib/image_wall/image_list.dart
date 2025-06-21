@@ -1,7 +1,7 @@
 import 'dart:io';
 
 // import 'package:async_wallpaper/async_wallpaper.dart';
-import 'package:daily_wallpaper_images/notifications.dart';
+import 'package:daily_wallpaper_images/notifications/pop_ups.dart';
 import 'package:flutter/material.dart';
 import 'package:daily_wallpaper_images/src/bindings/bindings.dart';
 import 'package:shimmer_animation/shimmer_animation.dart';
@@ -145,6 +145,7 @@ mixin ImageListPage {
           ],
         ),
         Align(alignment: Alignment.topRight, child: NotificationsMonitor()),
+        // Align(alignment: Alignment.topRight, child: NotificationPopUps()),
       ],
     );
   }
