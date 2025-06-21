@@ -72,8 +72,8 @@ utilizing the capabilities of the
 [Rinf](https://pub.dev/packages/rinf) framework.
 
 Signals sent between Dart and Rust are implemented using signal attributes.
-If you've modified the signal structs, run the following command
-to generate the corresponding Dart classes:
+If you've modified the any structs/enums in the "native/hub" crate's `signals` module,
+run the following command to generate the corresponding Dart classes:
 
 ```shell
 rinf gen
