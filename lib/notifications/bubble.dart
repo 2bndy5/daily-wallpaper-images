@@ -63,6 +63,8 @@ class NotificationBubble extends StatelessWidget {
       borderRadius: BorderRadius.circular(16.0),
     );
 
+    String body = alert.body.contains('\n') ? alert.body : '${alert.body}\n';
+
     return Padding(
       padding: const EdgeInsets.all(8.0),
       child: DecoratedBox(
@@ -77,7 +79,7 @@ class NotificationBubble extends StatelessWidget {
         ),
         child: ListTile(
           title: Text(alert.title),
-          subtitle: Text(alert.body + (alert.body.contains('\n') ? '' : '\n')),
+          subtitle: Text(body),
           splashColor: noteColor.withAlpha(126),
           onTap: onTap,
           contentPadding: EdgeInsets.fromLTRB(16.0, 0, 16.0, 0),

@@ -30,10 +30,11 @@ class ImageWall extends StatelessWidget with ImageListPage {
         stream: ImageList.rustSignalStream,
         initialData: null,
         builder: (context, snapshot) {
-          if (!snapshot.hasData) {
-            return buildLoadingWidget(getServiceName(service));
+          if (snapshot.data != null &&
+              snapshot.data!.message.service == service) {
+            return buildListView(context, snapshot.data!.message.images);
           }
-          return buildListView(context, snapshot.data!.message.images);
+          return buildLoadingWidget(getServiceName(service));
         },
       ),
     );

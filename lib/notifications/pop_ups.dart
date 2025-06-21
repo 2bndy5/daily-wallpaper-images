@@ -12,7 +12,7 @@ class NotificationsMonitor extends StatefulWidget {
 class _NotificationsMonitorState extends State<NotificationsMonitor>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller = AnimationController(
-    duration: const Duration(seconds: 2),
+    duration: const Duration(milliseconds: 1500),
     vsync: this,
   );
   late final Animation<Offset> _offsetAnimation = Tween<Offset>(
@@ -21,7 +21,7 @@ class _NotificationsMonitorState extends State<NotificationsMonitor>
   ).animate(
     CurvedAnimation(
       parent: _controller,
-      curve: Interval(0.5, 1.0, curve: Curves.easeIn),
+      curve: Interval(0.66, 1.0, curve: Curves.easeIn),
     ),
   );
 
@@ -42,14 +42,9 @@ class _NotificationsMonitorState extends State<NotificationsMonitor>
           if (justFinished!.isNotEmpty) {
             for (final item in justFinished) {
               children.add(
-                FutureBuilder(
-                  future: Future.delayed(Duration(seconds: 1)),
-                  builder: (context, asyncSnapshot) {
-                    return SlideTransition(
-                      position: _offsetAnimation,
-                      child: NotificationBubble(data![item]!),
-                    );
-                  },
+                SlideTransition(
+                  position: _offsetAnimation,
+                  child: NotificationBubble(data![item]!),
                 ),
               );
             }
@@ -63,7 +58,7 @@ class _NotificationsMonitorState extends State<NotificationsMonitor>
         if (children.isNotEmpty) {
           _controller.forward();
         }
-        final popUp = children.isNotEmpty
+        final popUps = children.isNotEmpty
             ? ConstrainedBox(
                 constraints: BoxConstraints(
                   maxWidth: Theme.of(context).drawerTheme.width ?? 450,
@@ -79,7 +74,7 @@ class _NotificationsMonitorState extends State<NotificationsMonitor>
                 ),
               )
             : Container();
-        return popUp;
+        return popUps;
       },
     );
   }
