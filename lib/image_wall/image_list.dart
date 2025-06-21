@@ -145,7 +145,6 @@ mixin ImageListPage {
           ],
         ),
         Align(alignment: Alignment.topRight, child: NotificationsMonitor()),
-        // Align(alignment: Alignment.topRight, child: NotificationPopUps()),
       ],
     );
   }
