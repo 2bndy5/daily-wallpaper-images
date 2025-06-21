@@ -34,6 +34,9 @@ class NotificationBubble extends StatelessWidget {
     final noteColor = getSeverityColor(alert.severity);
 
     var trailing = <Widget>[];
+    var body = <Widget>[
+      Row(children: [Text(alert.body.trim())])
+    ];
     if (alert.percent < 1.0) {
       trailing.add(
         Stack(
@@ -55,15 +58,39 @@ class NotificationBubble extends StatelessWidget {
       );
     } else {
       final finishIcon = getSeverityIcon(alert.severity);
-      trailing.addAll([finishIcon, Text(alert.statusMessage)]);
+      trailing.add(finishIcon);
+      var message = <Widget>[];
+      if (alert.status.downloaded != null) {
+        message.addAll([Icon(Icons.download), Text(alert.status.downloaded!)]);
+      }
+      if (alert.status.removed != null) {
+        if (message.isNotEmpty) {
+          message.add(Container(
+            padding: EdgeInsets.symmetric(horizontal: 8.0),
+          ));
+        }
+        message.addAll([
+          Icon(Icons.delete_forever),
+          Text('${alert.status.removed} files')
+        ]);
+      }
+      if (alert.status.elapsed != null) {
+        trailing.add(Text(alert.status.elapsed!));
+      }
+      if (message.isNotEmpty) {
+        body.add(
+          Padding(
+            padding: const EdgeInsets.only(top: 4.0),
+            child: Row(spacing: 4.0, children: message),
+          ),
+        );
+      }
     }
 
     final surfaceColor = Theme.of(context).colorScheme.surfaceContainerHigh;
     final roundedBorder = RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(16.0),
     );
-
-    String body = alert.body.contains('\n') ? alert.body : '${alert.body}\n';
 
     return Padding(
       padding: const EdgeInsets.all(8.0),
@@ -79,7 +106,7 @@ class NotificationBubble extends StatelessWidget {
         ),
         child: ListTile(
           title: Text(alert.title),
-          subtitle: Text(body),
+          subtitle: Column(children: body),
           splashColor: noteColor.withAlpha(126),
           onTap: onTap,
           contentPadding: EdgeInsets.fromLTRB(16.0, 0, 16.0, 0),

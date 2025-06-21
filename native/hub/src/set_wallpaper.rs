@@ -9,7 +9,9 @@
 use crate::{
     common::check_err,
     notification_center::{NotificationActor, NotificationUpdate},
-    signals::{NotificationAlert, NotificationSeverity, SetWallpaper, WallpaperMode},
+    signals::{
+        NotificationAlert, NotificationSeverity, NotificationStatus, SetWallpaper, WallpaperMode,
+    },
 };
 use anyhow::{anyhow, Result};
 use messages::prelude::{async_trait, Actor, Address, Context as MsgContext, Handler};
@@ -53,7 +55,7 @@ impl WallpaperActor {
                     body: format!("{e:?}"),
                     percent: 1.0,
                     severity: NotificationSeverity::Error,
-                    status_message: String::new(),
+                    status: NotificationStatus::default(),
                 },
                 Ok(result) => match result {
                     Ok(_) => NotificationAlert {
@@ -61,14 +63,14 @@ impl WallpaperActor {
                         body: "Success".to_string(),
                         percent: 1.0,
                         severity: NotificationSeverity::Info,
-                        status_message: String::new(),
+                        status: NotificationStatus::default(),
                     },
                     Err(e) => NotificationAlert {
                         title: "Failed to set the desktop wallpaper".to_string(),
                         body: format!("{e:?}"),
                         percent: 1.0,
                         severity: NotificationSeverity::Error,
-                        status_message: String::new(),
+                        status: NotificationStatus::default(),
                     },
                 },
             };

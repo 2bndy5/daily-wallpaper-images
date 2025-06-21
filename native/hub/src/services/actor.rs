@@ -11,7 +11,7 @@ use super::{condense_duration, get_service_metadata_name, get_service_url, Updat
 use crate::{
     common::check_err,
     notification_center::{NotificationActor, NotificationUpdate},
-    signals::{ImageService, NotificationAlert, NotificationSeverity, Refresh},
+    signals::{ImageService, NotificationAlert, NotificationSeverity, NotificationStatus, Refresh},
 };
 use anyhow::{anyhow, Context, Result};
 use futures_util::{StreamExt, TryFutureExt};
@@ -142,7 +142,7 @@ impl ImageServiceActor {
                 body: [e.to_string(), e.root_cause().to_string()].join("\n"),
                 percent: 1.0,
                 severity: NotificationSeverity::Error,
-                status_message: String::new(),
+                status: NotificationStatus::default(),
             })
             .await?;
         }
@@ -169,7 +169,7 @@ impl Handler<Refresh> for ImageServiceActor {
                 body: "Checking cache".to_string(),
                 percent: 0.0,
                 severity: NotificationSeverity::Info,
-                status_message: String::new(),
+                status: NotificationStatus::default(),
             },
         )?;
         self.check_notify_send_error(res.notification.clone())
@@ -189,7 +189,6 @@ impl Handler<Refresh> for ImageServiceActor {
         } else {
             // update cache metadata
             res.notification.body = format!("Fetching data from {}", service_name);
-            res.notification.status_message = condense_duration(timer.elapsed());
             self.check_notify_send_error(res.notification.clone())
                 .await?;
             res.total_steps += 1;
@@ -272,21 +271,28 @@ impl Handler<Refresh> for ImageServiceActor {
         }
 
         // finish up
-        let elapsed = timer.elapsed();
+        let elapsed = condense_duration(timer.elapsed());
         res.notification.percent = 1.0;
         if res.downloaded > 0 {
-            res.notification.body = format!(
-                "Cached {}/{} images\nDownloaded {}. Deleted {removed} files.",
-                res.updated_images,
-                res.total_images,
-                Size::from_bytes(res.downloaded)
-                    .format()
-                    .with_base(size::Base::Base10)
-            );
+            res.notification.status = NotificationStatus {
+                downloaded: Some(
+                    Size::from_bytes(res.downloaded)
+                        .format()
+                        .with_base(size::Base::Base10)
+                        .to_string(),
+                ),
+                removed: Some(removed),
+                elapsed: Some(elapsed),
+            };
+            res.notification.body =
+                format!("Cached {}/{} images", res.updated_images, res.total_images,);
         } else {
+            res.notification.status = NotificationStatus {
+                elapsed: Some(elapsed),
+                ..Default::default()
+            };
             res.notification.body = "Cache is already updated".to_string();
         }
-        res.notification.status_message = condense_duration(elapsed);
         self.check_notify_send_error(res.notification).await
     }
 }
