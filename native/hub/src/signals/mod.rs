@@ -8,14 +8,8 @@ pub struct DailyImage {
     pub description: String,
 }
 
-pub(crate) mod bing;
-pub use bing::*;
-
-pub(crate) mod nasa;
-pub use nasa::*;
-
-pub(crate) mod spotlight;
-pub use spotlight::*;
+pub(crate) mod services;
+pub use services::*;
 
 #[cfg(not(target_os = "android"))]
 pub(crate) mod wallpaper;

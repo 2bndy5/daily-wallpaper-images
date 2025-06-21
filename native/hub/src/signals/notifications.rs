@@ -14,9 +14,11 @@ pub struct NotificationDismiss {
 #[derive(Debug, DartSignal, Deserialize)]
 pub struct NotificationDismissAll;
 
-#[derive(Debug, RustSignal, Serialize)]
+#[derive(Debug, RustSignal, Serialize, Default)]
 pub struct NotificationResults {
     pub notifications: HashMap<String, NotificationAlert>,
+    pub pending: Vec<String>,
+    pub just_finished: Vec<String>,
 }
 
 #[derive(Debug, SignalPiece, Deserialize, Serialize, Clone)]
@@ -25,7 +27,7 @@ pub struct NotificationAlert {
     pub body: String,
     pub percent: f32,
     pub severity: NotificationSeverity,
-    pub status_message: String,
+    pub status: NotificationStatus,
 }
 
 impl NotificationAlert {
@@ -34,7 +36,7 @@ impl NotificationAlert {
         self.body = other.body;
         self.percent = other.percent;
         self.severity = other.severity;
-        self.status_message = other.status_message;
+        self.status = other.status;
     }
 }
 
@@ -44,4 +46,11 @@ pub enum NotificationSeverity {
     Info,
     Warning,
     Error,
+}
+
+#[derive(Debug, SignalPiece, Deserialize, Serialize, Clone, Default)]
+pub struct NotificationStatus {
+    pub downloaded: Option<String>,
+    pub removed: Option<u8>,
+    pub elapsed: Option<String>,
 }

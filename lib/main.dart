@@ -1,7 +1,6 @@
-import 'package:daily_wallpaper_images/bing.dart';
-import 'package:daily_wallpaper_images/nasa.dart';
-import 'package:daily_wallpaper_images/notifications.dart';
-import 'package:daily_wallpaper_images/spotlight.dart';
+import 'package:daily_wallpaper_images/image_wall/image_service.dart';
+import 'package:daily_wallpaper_images/notifications/drawer.dart';
+import 'package:daily_wallpaper_images/notifications/bubble.dart';
 import 'package:daily_wallpaper_images/src/bindings/bindings.dart';
 import 'package:flutter/material.dart';
 import 'package:rinf/rinf.dart';
@@ -45,16 +44,11 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  int _selectedSource = 0;
-  final services = [
-    "Bing Image of the Day",
-    "NASA Image of the Day",
-    "Windows Spotlight"
-  ];
+  ImageService _selectedSource = ImageService.bing;
 
   void _onItemTapped(int index) {
     setState(() {
-      _selectedSource = index;
+      _selectedSource = ImageService.values[index];
     });
   }
 
@@ -62,9 +56,9 @@ class _MyHomePageState extends State<MyHomePage> {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     var drawerDestinations = <Widget>[];
-    for (final (i, item) in services.indexed) {
+    for (final (i, item) in ImageService.values.indexed) {
       drawerDestinations.add(ListTile(
-        title: Text(item),
+        title: Text(getServiceName(item)),
         onTap: () {
           _onItemTapped(i);
           Navigator.pop(context);
@@ -76,7 +70,7 @@ class _MyHomePageState extends State<MyHomePage> {
       appBar: AppBar(
         backgroundColor: colorScheme.primaryContainer,
         foregroundColor: colorScheme.onPrimaryContainer,
-        title: Text(services[_selectedSource]),
+        title: Text(getServiceName(_selectedSource)),
         leading: Builder(
           builder: (context) {
             return IconButton(
@@ -88,9 +82,36 @@ class _MyHomePageState extends State<MyHomePage> {
           },
         ),
         actions: [
-          Builder(builder: (context) {
-            return NotificationsMonitor();
-          }),
+          StreamBuilder(
+              stream: NotificationResults.rustSignalStream,
+              builder: (context, snapShot) {
+                Color? statusColor;
+                if (snapShot.hasData) {
+                  NotificationSeverity? highest;
+                  for (final alert
+                      in snapShot.data!.message.notifications.values) {
+                    if (highest == null ||
+                        alert.severity.index > highest.index) {
+                      highest = alert.severity;
+                    }
+                  }
+                  if (highest != null) {
+                    statusColor = getSeverityColor(highest);
+                  }
+                }
+
+                return IconButton(
+                  onPressed: () {
+                    Scaffold.of(context).openEndDrawer();
+                  },
+                  icon: statusColor != null
+                      ? Badge(
+                          backgroundColor: statusColor,
+                          child: Icon(Icons.notifications),
+                        )
+                      : Icon(Icons.notifications),
+                );
+              }),
         ],
       ),
       drawer: Drawer(
@@ -124,11 +145,12 @@ class _MyHomePageState extends State<MyHomePage> {
               drawerDestinations,
         ),
       ),
-      body: [BingPage(), NasaPage(), SpotlightPage()][_selectedSource],
-      floatingActionButton: _selectedSource == 2
+      body: ImageWall(service: _selectedSource),
+      floatingActionButton: _selectedSource == ImageService.spotlight
           ? FloatingActionButton.small(
               onPressed: () {
-                SpotlightReset().sendSignalToRust();
+                Refresh(service: ImageService.spotlight, reset: true)
+                    .sendSignalToRust();
               },
               shape: CircleBorder(),
               tooltip: "I'm feeling lucky",
