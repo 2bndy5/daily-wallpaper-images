@@ -16,20 +16,32 @@ class MyApp extends StatelessWidget {
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
+    final lightScheme = ColorScheme.fromSeed(
+      seedColor: Colors.blueGrey,
+    );
+    final appBarThemeLight = AppBarTheme(
+      backgroundColor: lightScheme.primaryContainer,
+      foregroundColor: lightScheme.onPrimaryContainer,
+    );
+    final darkScheme = ColorScheme.fromSeed(
+      seedColor: Colors.blueGrey,
+      brightness: Brightness.dark,
+    );
+    final appBarThemeDark = AppBarTheme(
+      backgroundColor: darkScheme.primaryContainer,
+      foregroundColor: darkScheme.onPrimaryContainer,
+    );
     return MaterialApp(
       title: 'Daily Wallpaper Images',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.blueGrey,
-        ),
+        colorScheme: lightScheme,
         useMaterial3: true,
+        appBarTheme: appBarThemeLight,
       ),
       darkTheme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.blueGrey,
-          brightness: Brightness.dark,
-        ),
+        colorScheme: darkScheme,
+        appBarTheme: appBarThemeDark,
       ),
       home: const MyHomePage(),
     );
@@ -68,8 +80,6 @@ class _MyHomePageState extends State<MyHomePage> {
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: colorScheme.primaryContainer,
-        foregroundColor: colorScheme.onPrimaryContainer,
         title: Text(getServiceName(_selectedSource)),
         leading: Builder(
           builder: (context) {

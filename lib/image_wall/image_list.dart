@@ -1,92 +1,13 @@
 import 'dart:io';
 
 // import 'package:async_wallpaper/async_wallpaper.dart';
+import 'package:daily_wallpaper_images/image_wall/image_viewer.dart';
 import 'package:daily_wallpaper_images/notifications/pop_ups.dart';
 import 'package:flutter/material.dart';
 import 'package:daily_wallpaper_images/src/bindings/bindings.dart';
 import 'package:shimmer_animation/shimmer_animation.dart';
 
 mixin ImageListPage {
-  Icon _getModeIcon(WallpaperMode mode) {
-    return Icon(switch (mode) {
-      WallpaperMode.fit => Icons.fit_screen,
-      WallpaperMode.stretch => Icons.zoom_out_map,
-      WallpaperMode.center => Icons.zoom_in_map,
-      WallpaperMode.tile => Icons.grid_view,
-      WallpaperMode.crop => Icons.crop,
-    });
-  }
-
-  String _getModeText(WallpaperMode mode) {
-    return mode.name.substring(0, 1).toUpperCase() + mode.name.substring(1);
-  }
-
-  void _pictureModal(BuildContext context, DailyImage img) {
-    showDialog<void>(
-      context: context,
-      builder: (context) {
-        var selectedMode = WallpaperMode.fit;
-        return AlertDialog(
-          title: Text(img.date),
-          content: Column(
-            children: <Widget>[
-              Expanded(
-                child: Image.file(
-                  File(img.url),
-                  fit: BoxFit.contain,
-                  semanticLabel: img.description,
-                ),
-              ),
-              Text(img.description),
-            ],
-          ),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            DropdownMenu<WallpaperMode>(
-              initialSelection: WallpaperMode.fit,
-              label: const Text("Wallpaper Mode"),
-              dropdownMenuEntries:
-                  WallpaperMode.values.map<DropdownMenuEntry<WallpaperMode>>(
-                (entry) {
-                  return DropdownMenuEntry(
-                    label: _getModeText(entry),
-                    value: entry,
-                    leadingIcon: _getModeIcon(entry),
-                  );
-                },
-              ).toList(),
-              onSelected: (value) => {
-                if (value != null) {selectedMode = value}
-              },
-            ),
-            TextButton(
-              onPressed: () async {
-                if (Platform.isAndroid) {
-                  // await AsyncWallpaper.setWallpaperFromFile(
-                  //   filePath: img.url,
-                  //   wallpaperLocation: AsyncWallpaper.HOME_SCREEN,
-                  // );
-                } else {
-                  SetWallpaper(
-                    selected: WallpaperSelection(
-                      path: img.url,
-                      mode: selectedMode,
-                    ),
-                  ).sendSignalToRust();
-                }
-                Navigator.pop(context);
-              },
-              child: const Text('Set as wallpaper'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
   Widget buildLoadingWidget(String imageService) {
     return Center(
       child: Column(
@@ -138,7 +59,12 @@ mixin ImageListPage {
                 ),
                 onTap: () {
                   if (img.url.isNotEmpty) {
-                    return _pictureModal(context, img);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => ImageViewer(img),
+                      ),
+                    );
                   }
                 },
               )
