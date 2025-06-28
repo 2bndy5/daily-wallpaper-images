@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:daily_wallpaper_images/mouse_back_button.dart';
 import 'package:daily_wallpaper_images/src/bindings/bindings.dart';
+import 'package:easy_image_viewer/easy_image_viewer.dart';
 import 'package:flutter/material.dart';
 
 class ImageViewer extends StatefulWidget {
@@ -61,6 +62,20 @@ class _ImageViewerState extends State<ImageViewer> {
               },
               label: const Text('Set as wallpaper'),
             ),
+            IconButton(
+              onPressed: () => showDialog(
+                context: context,
+                builder: (context) {
+                  return Dialog(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Text(widget.img.description),
+                    ),
+                  );
+                },
+              ),
+              icon: Icon(Icons.info_outline),
+            ),
             Builder(builder: (context) {
               return IconButton(
                   onPressed: () => Scaffold.of(context).openEndDrawer(),
@@ -71,20 +86,16 @@ class _ImageViewerState extends State<ImageViewer> {
         body: Column(
           children: <Widget>[
             Expanded(
-              child: Image.file(
-                File(widget.img.url),
-                fit: BoxFit.contain,
-                semanticLabel: widget.img.description,
+              child: EasyImageView.imageWidget(
+                Image.file(
+                  File(widget.img.url),
+                  fit: BoxFit.contain,
+                  semanticLabel: widget.img.description,
+                ),
+                doubleTapZoomable: true,
               ),
             ),
           ],
-        ),
-        bottomSheet: BottomSheet(
-          onClosing: () {},
-          builder: (context) => Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Text(widget.img.description),
-          ),
         ),
         endDrawer: Drawer(
           child: ListView(

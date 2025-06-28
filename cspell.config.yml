@@ -20,5 +20,6 @@ words:
   - staticlib
   - temurin
   - thiserror
+  - Zoomable
 ignorePaths:
   - native/wallpaper
