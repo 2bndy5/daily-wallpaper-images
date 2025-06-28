@@ -15,7 +15,7 @@ pub enum WallpaperMode {
 #[derive(Debug, Deserialize, SignalPiece)]
 pub struct WallpaperSelection {
     pub path: String,
-    pub mode: WallpaperMode,
+    pub mode: Option<WallpaperMode>,
 }
 
 #[derive(Debug, DartSignal, Deserialize)]

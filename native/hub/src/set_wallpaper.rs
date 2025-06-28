@@ -97,13 +97,13 @@ impl Handler<SetWallpaper> for WallpaperActor {
             selection.path,
             selection.mode
         );
-        let mode = match &selection.mode {
+        let mode = selection.mode.map(|mode| match mode {
             WallpaperMode::Center => wallpaper::Mode::Center,
             WallpaperMode::Crop => wallpaper::Mode::Crop,
             WallpaperMode::Fit => wallpaper::Mode::Fit,
             WallpaperMode::Stretch => wallpaper::Mode::Stretch,
             WallpaperMode::Tile => wallpaper::Mode::Tile,
-        };
+        });
         let mut client = check_err(
             DesktopWallpaper::new()
                 .map_err(|e| anyhow!("Failed to init desktop wallpaper client: {e:?}")),
