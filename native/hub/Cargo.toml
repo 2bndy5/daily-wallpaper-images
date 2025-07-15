@@ -18,12 +18,12 @@ dirs = "6.0.0"
 futures-util = "0.3.31"
 messages = "0.3.1"
 quick-xml = {version = "0.37.5", features = ["serialize"]}
-reqwest = {version = "0.12.20", default-features = false, features = ["rustls-tls", "stream"]}
-rinf = "8.6.0"
+reqwest = {version = "0.12.22", default-features = false, features = ["rustls-tls", "stream"]}
+rinf = "8.7.0"
 serde = {version = "1", features = ["derive"]}
 serde_json = "1.0.140"
 size = "0.5.0"
-tokio = {version = "1.45.1", features = ["rt", "macros"]}
+tokio = {version = "1.46.1", features = ["rt", "macros"]}
 
 [target.'cfg(not(target_os = "android"))'.dependencies]
 wallpaper = {path = "../wallpaper"}
