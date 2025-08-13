@@ -4,6 +4,12 @@
 # https://docs.github.com/github/administering-a-repository/configuration-options-for-dependency-updates
 
 version: 2
+
+multi-ecosystem-groups:
+  rinf:
+    schedule:
+      interval: "weekly"
+
 updates:
   - package-ecosystem: github-actions
     directory: /
@@ -20,12 +26,7 @@ updates:
     labels: [flutter, dependencies]
     groups:
       flutter:
-        patterns:
-          - "*"
         exclude-patterns:
-          - 'rinf*'
-      rinf:
-        patterns:
           - 'rinf*'
   - package-ecosystem: cargo
     directory: /
@@ -35,10 +36,15 @@ updates:
       - dependency-name: wallpaper
     groups:
       cargo:
-        patterns:
-          - "*"
         exclude-patterns:
           - 'rinf*'
-      rinf:
-        patterns:
-          - 'rinf*'
+  - package-ecosystem: pub
+    directory: /
+    patterns:
+      - 'rinf*'
+    multi-ecosystem-group: rinf
+  - package-ecosystem: cargo
+    directory: /
+    patterns:
+      - 'rinf*'
+    multi-ecosystem-group: rinf
