@@ -17,11 +17,11 @@ chrono = {version = "0.4.41", features = ["now"]}
 dirs = "6.0.0"
 futures-util = "0.3.31"
 messages = "0.3.1"
-quick-xml = {version = "0.38.1", features = ["serialize"]}
+quick-xml = {version = "0.38.3", features = ["serialize"]}
 reqwest = {version = "0.12.23", default-features = false, features = ["rustls-tls", "stream"]}
 rinf = "8.7.2"
 serde = {version = "1", features = ["derive"]}
-serde_json = "1.0.142"
+serde_json = "1.0.143"
 size = "0.5.0"
 tokio = {version = "1.47.1", features = ["rt", "macros"]}
 
