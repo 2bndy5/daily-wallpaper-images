@@ -1,6 +1,7 @@
 mod actor;
 pub mod bing;
 pub mod nasa;
+pub mod settings;
 pub mod spotlight;
 use std::{path::PathBuf, time::Duration};
 
