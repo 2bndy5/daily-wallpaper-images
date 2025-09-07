@@ -32,108 +32,116 @@ class _ImageViewerState extends State<ImageViewer> {
 
   @override
   Widget build(BuildContext context) {
+    WallpaperModeCache().sendSignalToRust();
     return MouseBackButtonDetector(
       onTapDown: (details) => Navigator.pop(context),
-      child: Scaffold(
-        appBar: AppBar(
-          title: Text(widget.img.date),
-          leading: IconButton(
-            onPressed: () => Navigator.pop(context),
-            icon: Icon(Icons.arrow_back),
-          ),
-          actions: [
-            TextButton.icon(
-              icon: Icon(Icons.check),
-              onPressed: () async {
-                if (Platform.isAndroid) {
-                  // await AsyncWallpaper.setWallpaperFromFile(
-                  //   filePath: img.url,
-                  //   wallpaperLocation: AsyncWallpaper.HOME_SCREEN,
-                  // );
-                } else {
-                  SetWallpaper(
-                    selected: WallpaperSelection(
-                      path: widget.img.url,
-                      mode: selectedMode,
-                    ),
-                  ).sendSignalToRust();
-                }
-                Navigator.pop(context);
-              },
-              label: const Text('Set as wallpaper'),
-            ),
-            IconButton(
-              onPressed: () => showDialog(
-                context: context,
-                builder: (context) {
-                  return Dialog(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Text(widget.img.description),
-                    ),
-                  );
-                },
-              ),
-              icon: Icon(Icons.info_outline),
-            ),
-            Builder(builder: (context) {
-              return IconButton(
-                  onPressed: () => Scaffold.of(context).openEndDrawer(),
-                  icon: Icon(Icons.display_settings));
-            }),
-          ],
-        ),
-        body: Column(
-          children: <Widget>[
-            Expanded(
-              child: EasyImageView.imageWidget(
-                Image.file(
-                  File(widget.img.url),
-                  fit: BoxFit.contain,
-                  semanticLabel: widget.img.description,
+      child: StreamBuilder(
+          stream: WallpaperModeCache.rustSignalStream,
+          builder: (context, asyncSnapshot) {
+            if (asyncSnapshot.hasData) {
+              selectedMode = asyncSnapshot.data!.message.mode!;
+            }
+            return Scaffold(
+              appBar: AppBar(
+                title: Text(widget.img.date),
+                leading: IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: Icon(Icons.arrow_back),
                 ),
-                doubleTapZoomable: true,
-              ),
-            ),
-          ],
-        ),
-        endDrawer: Drawer(
-          child: ListView(
-            children: [
-              DrawerHeader(
-                decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primaryContainer),
-                child: Text("Options"),
-              ),
-              ListTile(
-                title: DropdownMenu<WallpaperMode?>(
-                  initialSelection: selectedMode,
-                  label: const Text("Wallpaper Mode"),
-                  dropdownMenuEntries: [
-                        DropdownMenuEntry<WallpaperMode?>(
-                          label: "Not Changed",
-                          value: null,
-                        )
-                      ] +
-                      WallpaperMode.values
-                          .map<DropdownMenuEntry<WallpaperMode?>>(
-                        (entry) {
-                          return DropdownMenuEntry(
-                            label: _getModeText(entry),
-                            value: entry,
-                            leadingIcon: _getModeIcon(entry),
-                          );
+                actions: [
+                  TextButton.icon(
+                    icon: Icon(Icons.check),
+                    onPressed: () async {
+                      if (Platform.isAndroid) {
+                        // await AsyncWallpaper.setWallpaperFromFile(
+                        //   filePath: widget.img.url,
+                        //   wallpaperLocation: AsyncWallpaper.HOME_SCREEN,
+                        // );
+                      } else {
+                        SetWallpaper(
+                          selected: WallpaperSelection(
+                            path: widget.img.url,
+                            mode: selectedMode,
+                          ),
+                        ).sendSignalToRust();
+                      }
+                      Navigator.pop(context);
+                    },
+                    label: const Text('Set as wallpaper'),
+                  ),
+                  IconButton(
+                    onPressed: () => showDialog(
+                      context: context,
+                      builder: (context) {
+                        return Dialog(
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Text(widget.img.description),
+                          ),
+                        );
+                      },
+                    ),
+                    icon: Icon(Icons.info_outline),
+                  ),
+                  Builder(builder: (context) {
+                    return IconButton(
+                        onPressed: () {
+                          Scaffold.of(context).openEndDrawer();
                         },
-                      ).toList(),
-                  onSelected: (value) => {
-                    if (value != null) {selectedMode = value}
-                  },
+                        icon: Icon(Icons.display_settings));
+                  }),
+                ],
+              ),
+              body: Column(
+                children: <Widget>[
+                  Expanded(
+                    child: EasyImageView.imageWidget(
+                      Image.file(
+                        File(widget.img.url),
+                        fit: BoxFit.contain,
+                        semanticLabel: widget.img.description,
+                      ),
+                      doubleTapZoomable: true,
+                    ),
+                  ),
+                ],
+              ),
+              endDrawer: Drawer(
+                child: ListView(
+                  children: [
+                    DrawerHeader(
+                      decoration: BoxDecoration(
+                          color:
+                              Theme.of(context).colorScheme.primaryContainer),
+                      child: Text("Options"),
+                    ),
+                    ListTile(
+                      title: DropdownMenu<WallpaperMode?>(
+                        initialSelection: selectedMode,
+                        label: const Text("Wallpaper Mode"),
+                        dropdownMenuEntries: WallpaperMode.values
+                            .map<DropdownMenuEntry<WallpaperMode?>>(
+                          (entry) {
+                            return DropdownMenuEntry(
+                              label: _getModeText(entry),
+                              value: entry,
+                              leadingIcon: _getModeIcon(entry),
+                            );
+                          },
+                        ).toList(),
+                        onSelected: (value) {
+                          if (value != null) {
+                            selectedMode = value;
+                            WallpaperModeCache(mode: value).sendSignalToRust();
+                          }
+                        },
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ],
-          ),
-        ),
-      ),
+            );
+          }),
     );
   }
 }

@@ -36,7 +36,8 @@ impl ImageServiceActor {
         app_cache_dir: PathBuf,
         notification_center: Address<NotificationActor>,
     ) -> Self {
-        spawn(Self::listen_to_refresh(service_addr));
+        spawn(Self::listen_to_refresh(service_addr.clone()));
+        spawn(Self::listen_to_wallpaper_mode(service_addr));
         ImageServiceActor {
             app_cache_dir,
             notification_center,

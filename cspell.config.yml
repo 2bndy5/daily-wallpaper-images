@@ -3,6 +3,7 @@ words:
   - batchrsp
   - bindgen
   - binstall
+  - bndy
   - cdylib
   - chrono
   - clippy

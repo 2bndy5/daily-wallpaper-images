@@ -11,9 +11,7 @@ pub struct DailyImage {
 pub(crate) mod services;
 pub use services::*;
 
-#[cfg(not(target_os = "android"))]
 pub(crate) mod wallpaper;
-#[cfg(not(target_os = "android"))]
 pub use wallpaper::*;
 
 pub(crate) mod notifications;
