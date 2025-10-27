@@ -60,7 +60,7 @@ jobs:
       - name: Build App
         run: flutter build ${{ matrix.flutter-cmd }}
       - name: Save artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           path: ${{ matrix.artifact }}
           name: ${{ matrix.platform }}_artifacts
