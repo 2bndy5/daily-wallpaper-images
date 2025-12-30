@@ -54,7 +54,13 @@ impl UpdateResources {
             app_cache_dir,
             notification,
             text: Default::default(),
-            client: ClientBuilder::new().build()?,
+            client: ClientBuilder::new()
+                .user_agent(concat!(
+                    env!("CARGO_PKG_NAME"),
+                    "/",
+                    env!("CARGO_PKG_VERSION")
+                ))
+                .build()?,
             downloaded: Default::default(),
             updated_images: Default::default(),
             total_images: Default::default(),
