@@ -15,7 +15,7 @@ use crate::signals::{ImageService, NotificationAlert};
 pub fn get_service_url(service: &ImageService) -> &'static str {
     match service {
         ImageService::Bing => "https://www.bing.com/HPImageArchive.aspx?format=js&idx=0&n=14",
-        ImageService::Nasa => "https://www.nasa.gov/rss/dyn/lg_image_of_the_day.rss",
+        ImageService::Nasa => "https://www.nasa.gov/feeds/iotd-feed/",
         ImageService::Spotlight => "https://fd.api.iris.microsoft.com/v4/api/selection?&placement=88000820&bcnt=4&country=us&locale=en-us&fmt=json",
     }
 }
