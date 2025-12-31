@@ -99,7 +99,11 @@ runs:
       if: inputs.cache-cargo == 'true'
       uses: actions/cache@v5
       with:
-        path: ~/.cargo
+        path: |-
+          ~/.cargo/registry/index/
+          ~/.cargo/registry/cache/
+          ~/.cargo/git/db/
+          target/
         key: ${{ inputs.cache-cargo-key }}
     - name: Fetch .cargo locked resources
       shell: bash
