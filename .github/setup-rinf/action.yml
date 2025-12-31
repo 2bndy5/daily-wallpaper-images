@@ -73,7 +73,7 @@ runs:
       shell: bash
       run: cargo binstall -y rinf_cli
     - name: Setup Java for Android
-      uses: actions/setup-java@v4
+      uses: actions/setup-java@v5
       # only required for android builds
       if: inputs.platform == 'android'
       with:
@@ -97,15 +97,18 @@ runs:
         cache-key: ${{ inputs.cache-pub-key }}
     - name: Cache .cargo locked resources
       if: inputs.cache-cargo == 'true'
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
-        path: ~/.cargo
+        path: |-
+          ~/.cargo/registry/index/
+          ~/.cargo/registry/cache/
+          ~/.cargo/git/db/
+          target/
         key: ${{ inputs.cache-cargo-key }}
     - name: Fetch .cargo locked resources
       shell: bash
       run: cargo fetch
     # https://github.com/ninja-build/ninja/wiki/Pre-built-Ninja-packages
-    # https://grpc.io/docs/protoc-installation/
     - name: Install Linux prerequisites
       if: inputs.platform == 'linux'
       shell: bash
