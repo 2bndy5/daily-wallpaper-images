@@ -45,7 +45,7 @@ dependencies:
 
   rinf: 8.8.1
   flutter_launcher_icons: '0.14.4'
-  shimmer_animation: '2.2.2'
+  shimmer_animation: '^2.2.2'
   tuple: '2.0.2'
   easy_image_viewer: '1.5.1'
   # async_wallpaper: '2.1.0'
