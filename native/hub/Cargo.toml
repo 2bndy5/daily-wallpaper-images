@@ -18,7 +18,7 @@ dirs = "6.0.0"
 futures-util = "0.3.31"
 messages = "0.3.1"
 quick-xml = {version = "0.38.4", features = ["serialize"]}
-rinf = "8.8.1"
+rinf = "8.9.0"
 serde = {version = "1", features = ["derive"]}
 serde_json = "1.0.148"
 size = "0.5.0"
