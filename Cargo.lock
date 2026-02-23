@@ -1296,9 +1296,9 @@ dependencies = [
 
 [[package]]
 name = "rinf"
-version = "8.9.0"
+version = "8.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "165405a4c9092f80f36c7b7f2164b4e03b459ee0df9c935fed9a511cb96fd775"
+checksum = "8b3541b398ce2d5c11cf987ee5035a981366de39213c488e69d8055c7026fed4"
 dependencies = [
  "allo-isolate",
  "bincode",
@@ -1312,9 +1312,9 @@ dependencies = [
 
 [[package]]
 name = "rinf_proc"
-version = "8.9.0"
+version = "8.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2a76b28e2cf7c67d567503c7f5731281aeeb5a9920848ae4d763cdcb27db1f5d"
+checksum = "5b020b96db8964587b5cc1ad4438b2cdc557d676aa5319f0d3bce48c58cfeac1"
 dependencies = [
  "heck",
  "proc-macro2",
