@@ -12,12 +12,12 @@ version = "0.1.0"
 crate-type = ["lib", "cdylib", "staticlib"]
 
 [dependencies]
-anyhow = "1.0.101"
-chrono = {version = "0.4.43", features = ["now"]}
+anyhow = "1.0.102"
+chrono = {version = "0.4.44", features = ["now"]}
 dirs = "6.0.0"
 futures-util = "0.3.32"
 messages = "0.3.1"
-quick-xml = {version = "0.39.1", features = ["serialize"]}
+quick-xml = {version = "0.39.2", features = ["serialize"]}
 rinf = "8.9.1"
 serde = {version = "1", features = ["derive"]}
 serde_json = "1.0.149"
