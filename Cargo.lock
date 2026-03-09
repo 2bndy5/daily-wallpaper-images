@@ -1296,9 +1296,9 @@ dependencies = [
 
 [[package]]
 name = "rinf"
-version = "8.9.1"
+version = "8.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8b3541b398ce2d5c11cf987ee5035a981366de39213c488e69d8055c7026fed4"
+checksum = "dfbc74f9ac22c5c8789af744a12266fff01c0af275aa3e36953c7d666456db59"
 dependencies = [
  "allo-isolate",
  "bincode",
