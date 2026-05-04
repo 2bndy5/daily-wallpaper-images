@@ -1,0 +1,161 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      component:
+        description: Which semantic version component to bump
+        required: true
+        type: choice
+        options:
+          - major
+          - minor
+          - patch
+
+permissions: {}
+
+jobs:
+  bump-and-tag:
+    name: Bump version and create tag
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    environment:
+      name: staging
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v6
+        with:
+          token: ${{ secrets.BUMP_N_RELEASE }}
+          persist-credentials: true # needed to push a commit and tag it
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Setup nushell
+        # spell-checker: disable-next-line
+        uses: hustcer/setup-nu@92c296ba1ba2ba04cc948ab64ddefe192dc13f0c # v3.23
+        with:
+          version: ${{ vars.NUSHELL_VERSION || '*' }}
+
+      - name: Bump ${{ inputs.component }} version
+        run: nu .github/workflows/bump-n-release.nu ${{ inputs.component }}
+
+  build:
+    name: Build packages (${{ matrix.platform }})
+    if: github.event_name == 'push'
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux
+            targets: appimage,deb,rpm,zip
+          - os: windows-latest
+            platform: windows
+            targets: exe,msix,zip
+          - os: macos-latest
+            platform: macos
+            targets: dmg,pkg,zip
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+          submodules: true
+
+      - name: Setup Build Environment
+        uses: ./.github/setup-rinf
+        with:
+          platform: ${{ matrix.platform }}
+          cache-cargo: true
+          cache-cargo-key: ${{ hashFiles('Cargo.lock') }}-${{ matrix.platform }}-cargo
+          cache-pub: true
+          cache-pub-key: ${{ hashFiles('pubspec.lock') }}-${{ matrix.platform }}-dart
+          cache-flutter-sdk: true
+
+      - name: Install Linux packaging prerequisites
+        if: matrix.platform == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y plocate rpm patchelf
+          sudo updatedb
+          wget -O appimagetool "https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage"
+          chmod +x appimagetool
+          sudo mv appimagetool /usr/local/bin/
+
+      - name: Install Inno Setup 6
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: choco install InnoSetup --no-progress -y
+
+      - name: Setup Node for appdmg
+        if: matrix.platform == 'macos'
+        uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+
+      - name: Install appdmg
+        if: matrix.platform == 'macos'
+        run: npm install -g appdmg
+
+      - name: Generate Rinf Bindings
+        run: rinf gen
+
+      - name: Get Flutter Dependencies
+        run: flutter pub get
+
+      - name: Install Fastforge
+        run: dart pub global activate fastforge
+
+      - name: Package with Fastforge
+        run: dart pub global run fastforge package --platform=${{ matrix.platform }} --targets=${{ matrix.targets }}
+
+      - name: Upload Packaged Artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.platform }}-packages
+          path: dist/**
+          if-no-files-found: error
+
+  deploy:
+    name: Deploy release assets
+    if: github.event_name == 'push'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Download Artifacts
+        uses: actions/download-artifact@v5
+        with:
+          pattern: "*-packages"
+          path: release-assets
+          merge-multiple: true
+
+      - name: Publish GitHub Release
+        env:
+          tag_name: ${{ github.ref_name }}
+          GH_TOKEN: ${{ github.token }}
+        run: |-
+          mapfile -t files < <(find release-assets -type f)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "No release artifacts found"
+            exit 1
+          fi
+          if gh release view "$tag_name" > /dev/null 2>&1; then
+            gh release upload "$tag_name" "${files[@]}" --clobber
+          else
+            gh release create "$tag_name" "${files[@]}" --title "$tag_name" --generate-notes
+          fi

@@ -1,0 +1,9 @@
+app_id: 8CB4D15E-23D7-4725-B5CF-9E365A5F7E82
+display_name: Daily Wallpaper Images
+publisher_name: 2bndy5
+publisher_url: https://github.com/2bndy5/daily-wallpaper-images
+create_desktop_icon: true
+install_dir_name: "{autopf64}\\Daily Wallpaper Images"
+setup_icon_file: assets/app_icon.ico
+locales:
+  - en

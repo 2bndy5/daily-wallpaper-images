@@ -1,0 +1,14 @@
+display_name: Daily Wallpaper Images
+package_name: daily-wallpaper-images
+maintainer:
+  name: 2bndy5
+  email: noreply@users.noreply.github.com
+priority: optional
+section: x11
+installed_size: 20000
+essential: false
+icon: assets/app_icon.png
+generic_name: Wallpaper Manager
+categories:
+  - Utility
+startup_notify: true

@@ -1,0 +1,11 @@
+display_name: Daily Wallpaper Images
+icon: assets/app_icon.png
+keywords:
+  - wallpaper
+  - bing
+  - nasa
+generic_name: Wallpaper Manager
+categories:
+  - Utility
+startup_notify: true
+include: []
