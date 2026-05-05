@@ -1,0 +1,7 @@
+display_name: Daily Wallpaper Images
+publisher_display_name: 2bndy5
+identity_name: 2bndy5.daily-wallpaper-images
+msix_version: 1.0.0.0
+logo_path: assets/app_icon.png
+capabilities: internetClient
+architecture: x64

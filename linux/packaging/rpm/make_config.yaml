@@ -1,0 +1,13 @@
+display_name: Daily Wallpaper Images
+icon: assets/app_icon.png
+summary: Desktop app to set wallpaper from daily image sources.
+group: Applications/System
+vendor: 2bndy5
+packager: 2bndy5
+packagerEmail: noreply@users.noreply.github.com
+license: MIT
+url: https://github.com/2bndy5/daily-wallpaper-images
+generic_name: Wallpaper Manager
+categories:
+  - Utility
+startup_notify: true
