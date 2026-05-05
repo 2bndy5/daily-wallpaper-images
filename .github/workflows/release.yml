@@ -116,7 +116,7 @@ jobs:
         run: dart pub global activate fastforge
 
       - name: Package with Fastforge
-        run: dart pub global run fastforge package --platform=${{ matrix.platform }} --targets=${{ matrix.targets }}
+        run: fastforge package --platform=${{ matrix.platform }} --targets=${{ matrix.targets }}
 
       - name: Upload Packaged Artifacts
         uses: actions/upload-artifact@v7
