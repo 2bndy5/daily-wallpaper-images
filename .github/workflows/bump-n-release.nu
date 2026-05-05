@@ -27,8 +27,6 @@ export def --wrapped run-cmd [...cmd: string] {
     print $"(ansi magenta)($app) took ($elapsed)(ansi reset)"
 }
 
-const GIT_CLIFF_CONFIG = [--config .config/cliff.toml]
-
 # Bump the version.
 #
 # This function also updates known occurrences of the old version spec to
@@ -61,6 +59,9 @@ export def bump-version [
         error make {msg: $"Invalid version component: ($component)"}
     }
     let new = $"($new.major).($new.minor).($new.patch)"
+    if (not $dry_run) {
+        $spec | update version $"($new)" | save --force pubspec.yaml
+    }
     print $"bumped ($old) to ($new)"
     $new
 }

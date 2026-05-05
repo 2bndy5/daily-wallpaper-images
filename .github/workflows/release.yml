@@ -2,8 +2,13 @@ name: Release
 
 on:
   push:
+    branches:
+      - main
     tags:
       - "v*"
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       component:
@@ -46,7 +51,7 @@ jobs:
 
   build:
     name: Build packages (${{ matrix.platform }})
-    if: github.event_name == 'push'
+    if: github.event_name != 'workflow_dispatch'
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -122,7 +127,7 @@ jobs:
 
   deploy:
     name: Deploy release assets
-    if: github.event_name == 'push'
+    if: startsWith(github.ref, 'refs/tags/v')
     needs: build
     runs-on: ubuntu-latest
     permissions:
