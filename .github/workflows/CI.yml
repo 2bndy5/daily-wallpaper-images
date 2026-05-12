@@ -140,7 +140,7 @@ jobs:
           persist-credentials: false
 
       - name: Download Artifacts
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v8
         with:
           pattern: "*-packages"
           path: release-assets
