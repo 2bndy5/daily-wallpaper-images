@@ -42,7 +42,7 @@ jobs:
 
       - name: Setup nushell
         # spell-checker: disable-next-line
-        uses: hustcer/setup-nu@92c296ba1ba2ba04cc948ab64ddefe192dc13f0c # v3.23
+        uses: hustcer/setup-nu@ccd5bb5426b05a32009c2ba967946231f3919c97 # v3.25
         with:
           version: ${{ vars.NUSHELL_VERSION || '*' }}
 
