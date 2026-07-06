@@ -165,10 +165,10 @@ packages:
     dependency: "direct dev"
     description:
       name: fastforge
-      sha256: "99e889c38045a34d135e0d06c9cc30c909d585bad98a455b636b124d67c96395"
+      sha256: d6c1e816bdb8d56bb81681f14ec5afcd8626b9d7fe21f180dab4d18f21f61716
       url: "https://pub.dev"
     source: hosted
-    version: "0.6.8"
+    version: "0.6.9"
   ffi:
     dependency: transitive
     description:
@@ -202,18 +202,18 @@ packages:
     dependency: transitive
     description:
       name: flutter_app_packager
-      sha256: "2ca7c64362291c117258d897b6a232d9fc39355bcf3bcc7e24aff7b2cf711b3b"
+      sha256: "1265c5e57eddea4843f006cfccbca5bee3257f293771e4362bf3b8120b415ef6"
       url: "https://pub.dev"
     source: hosted
-    version: "0.6.8"
+    version: "0.6.9"
   flutter_app_publisher:
     dependency: transitive
     description:
       name: flutter_app_publisher
-      sha256: ebaf6b01e0d28f4d5abc4959fcde3692a2f0d5297148507fb3590fe10a55d5dd
+      sha256: fc951fe7596ca879981e307deb2a2493ea40b85231e93da0ca3e809cbeffa480
       url: "https://pub.dev"
     source: hosted
-    version: "0.6.6"
+    version: "0.6.8"
   flutter_launcher_icons:
     dependency: "direct main"
     description:
@@ -427,6 +427,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.0.4"
+  mutex:
+    dependency: transitive
+    description:
+      name: mutex
+      sha256: "8827da25de792088eb33e572115a5eb0d61d61a3c01acbc8bcbe76ed78f1a1f2"
+      url: "https://pub.dev"
+    source: hosted
+    version: "3.1.0"
   package_config:
     dependency: transitive
     description:
@@ -459,6 +467,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "7.0.2"
+  platform_info:
+    dependency: transitive
+    description:
+      name: platform_info
+      sha256: "61f3bd25642d6624b3d3111892b517cdb17c37a1837189fee346fcc6dd09b052"
+      url: "https://pub.dev"
+    source: hosted
+    version: "4.0.2"
   plist_parser:
     dependency: transitive
     description:
@@ -487,10 +503,10 @@ packages:
     dependency: transitive
     description:
       name: qiniu_sdk_base
-      sha256: "2506c6372512f81cfbddf162ea6da1ad7b1c6521dee1d10e9da6847c92e13349"
+      sha256: "1487f8db30e998a75a63ace68018de7644c92f2f81102ca1ee95fdb6e88307e0"
       url: "https://pub.dev"
     source: hosted
-    version: "0.5.2"
+    version: "0.8.0"
   recase:
     dependency: transitive
     description:
@@ -531,6 +547,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.2.2+1"
+  singleflight:
+    dependency: transitive
+    description:
+      name: singleflight
+      sha256: "820397a683df8fce2a695b892134014fb7996a18a04cb845be8fd4f58741f440"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.2"
   sky_engine:
     dependency: transitive
     description: flutter
@@ -604,18 +628,10 @@ packages:
     dependency: transitive
     description:
       name: unified_distributor
-      sha256: be8acdf0409aff17e295b2e9f682ecb48bce085a1f1518ca99b6ac80539374e8
+      sha256: a5ac490e86f4a6ee31ae52b4d47c3478dadc0043a5d6ecb0e8c9ba5ffdcf6c8a
       url: "https://pub.dev"
     source: hosted
-    version: "0.2.8"
-  uuid:
-    dependency: transitive
-    description:
-      name: uuid
-      sha256: "648e103079f7c64a36dc7d39369cabb358d377078a051d6ae2ad3aa539519313"
-      url: "https://pub.dev"
-    source: hosted
-    version: "3.0.7"
+    version: "0.2.9"
   vector_math:
     dependency: transitive
     description:
@@ -624,6 +640,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.2.0"
+  version:
+    dependency: transitive
+    description:
+      name: version
+      sha256: "3d4140128e6ea10d83da32fef2fa4003fccbf6852217bb854845802f04191f94"
+      url: "https://pub.dev"
+    source: hosted
+    version: "3.0.2"
   vm_service:
     dependency: transitive
     description:
