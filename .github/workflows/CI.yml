@@ -57,9 +57,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # rpm target disabled: rpm >= 4.20 (newer runners) builds in "<name>-<version>-build",
+          # which breaks fastforge's rpm spec. Re-add `rpm` once fastforge supports it.
           - os: ubuntu-latest
             platform: linux
-            targets: appimage,deb,rpm,zip
+            targets: appimage,deb,zip
           - os: windows-latest
             platform: windows
             targets: exe,msix,zip
